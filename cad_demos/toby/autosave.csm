@@ -1,0 +1,54 @@
+# autosave.csm written by ocsmSave (v1.27)
+
+# Constant, Design, and Output Parameters:
+DESPMTR   baseplate:dx       4.00000
+DESPMTR   baseplate:dz       4.00000
+DESPMTR   beam:root_dx       1.00000
+DESPMTR   beam:root_dz       1.00000
+DESPMTR   beam:taper_x       0.50000
+DESPMTR   beam:taper_z       0.50000
+DESPMTR   beam:length       2.00000
+DESPMTR   endmass:dx       1.00000
+DESPMTR   endmass:dy       1.00000
+DESPMTR   endmass:dz       1.00000
+DESPMTR   stiffener1:rel_position       0.50000
+DESPMTR   stiffener1:od       0.50000
+DESPMTR   stiffener1:hole_fraction       0.40000
+
+# Global Attributes:
+
+# Branches:
+BOX       0   0   0   baseplate:dx   0   baseplate:dz
+SELECT    face
+ATTRIBUTE capsConstraint   $base
+SELECT    edge
+ATTRIBUTE capsConstraint   $base
+SELECT    node
+ATTRIBUTE capsConstraint   $base
+MARK
+SET       xmid baseplate:dx/2
+SET       zmid baseplate:dz/2
+BOX       xmid-beam:root_dx/2   0   zmid-beam:root_dz/2   beam:root_dx   0   beam:root_dz
+SET       enddx beam:root_dx*beam:taper_x
+SET       enddz beam:root_dz*beam:taper_z
+BOX       xmid-enddx/2   beam:length   zmid-enddz/2   enddx   0   enddz
+RULE      0   0   0
+EXTRACT   0
+UNION     0   0   0
+BOX       xmid-endmass:dx/2   beam:length   zmid-endmass:dz/2   endmass:dx   endmass:dy   endmass:dz
+EXTRACT   0
+UNION     0   0   0
+SET       stiffener1_dy stiffener1:rel_position*beam:length
+TORUS     xmid   stiffener1_dy   zmid   0   1   0   stiffener1:od   stiffener1:od*stiffener1:hole_fraction
+EXTRACT   0
+UNION     0   0   0
+SELECT    face
+ATTRIBUTE capsGroup   $all
+SELECT    body
+ATTRIBUTE capsAIM   $egadsTessAIM;tacsAIM
+SELECT    face
+ATTRIBUTE capsLoad   $loading
+SKBEG     0   0   0   1
+SKEND     0
+
+END
