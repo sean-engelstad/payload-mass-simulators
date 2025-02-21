@@ -1,0 +1,11 @@
+box 0 0 0 2 4 6
+store box1
+restore box1
+translate 5 5 8
+rotatex 45
+restore box1
+
+udprim naca series 0012
+
+end
+||||

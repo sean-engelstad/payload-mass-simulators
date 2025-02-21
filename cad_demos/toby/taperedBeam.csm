@@ -1,0 +1,77 @@
+# go back and add design vars later
+
+despmtr baseplate:dx 4
+despmtr baseplate:dz 4
+
+despmtr beam:root_dx 1
+despmtr beam:root_dz 1
+despmtr beam:taper_x 0.5
+despmtr beam:taper_z 0.5
+despmtr beam:length 2
+
+despmtr endmass:dx 1
+despmtr endmass:dy 1
+despmtr endmass:dz 1
+
+despmtr stiffener1:rel_position 0.5
+despmtr stiffener1:od 0.5
+despmtr stiffener1:hole_fraction 0.4
+
+#Create baseplate
+box 0 0 0 baseplate:dx 0 baseplate:dz
+#applies constraint
+select face
+attribute capsConstraint $base
+select edge
+attribute capsConstraint $base
+select node
+attribute capsConstraint $base
+
+#create root of beam
+mark
+set xmid baseplate:dx/2
+set zmid baseplate:dz/2
+box xmid-beam:root_dx/2 0 zmid-beam:root_dz/2 beam:root_dx 0 beam:root_dz
+
+#create end of beam
+set enddx beam:root_dx*beam:taper_x
+set enddz beam:root_dz*beam:taper_z
+box xmid-enddx/2 beam:length zmid-enddz/2 enddx 0 enddz
+
+#create beam made of sheet bodies
+rule
+extract 0
+union
+
+#create end mass
+box xmid-endmass:dx/2 beam:length zmid-endmass:dz/2 endmass:dx endmass:dy endmass:dz
+extract 0
+union
+
+#create stiffener - different methods
+set stiffener1_dy stiffener1:rel_position*beam:length
+
+#torus centered on beam
+torus xmid stiffener1_dy zmid 0 1 0  stiffener1:od stiffener1:od*stiffener1:hole_fraction
+
+# Compute local beam width and depth at stiffener height
+#set local_dx beam:root_dx*(1-(stiffener1:rel_position*(1-beam:taper_x)))
+#set local_dz beam:root_dz*(1-(stiffener1:rel_position*(1-beam:taper_z)))
+
+extract 0
+union
+
+#applies properties to all faces
+select face
+attribute capsGroup $all
+
+#tell FEA what body
+select body
+attribute capsAIM $egadsTessAIM;tacsAIM
+
+#Apply loading
+select face
+attribute capsLoad $loading
+
+end
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
