@@ -1,0 +1,157 @@
+# go back and add design vars later
+
+cfgpmtr stiffener_count 5
+
+despmtr baseplate:dx 4
+despmtr baseplate:dz 4
+
+despmtr beam:root_dx 1
+despmtr beam:root_dz 1
+despmtr beam:taper_x 0.5
+despmtr beam:taper_z 0.5
+despmtr beam:length 2
+
+despmtr endmass:dx 1
+despmtr endmass:dy 1
+despmtr endmass:dz 1
+
+despmtr stiffener:polyB 1.0
+despmtr stiffener:polyC 0.0
+despmtr stiffener:hole_polyB 0.6
+despmtr stiffener:hole_polyC 0.1
+#despmtr stiffener:hole_fractiondx 0.5
+#despmtr stiffener:hole_fractiondz 0.5
+
+#despmtr stiffener1:rel_position 0.25
+#despmtr stiffener1:hole_fractiondx 0.5
+#despmtr stiffener1:hole_fractiondz 0.5
+
+#despmtr stiffener2:rel_position 0.5
+#despmtr stiffener2:hole_fractiondx 0.4
+#despmtr stiffener2:hole_fractiondz 0.4
+
+#despmtr stiffener2:rel_position 0.75
+#despmtr stiffener2:hole_fractiondx 0.4
+#despmtr stiffener2:hole_fractiondz 0.4
+
+#Create baseplate
+box 0 0 0 baseplate:dx 0 baseplate:dz
+#applies constraint
+select face
+attribute capsConstraint $base
+select edge
+attribute capsConstraint $base
+select node
+attribute capsConstraint $base
+select face
+attribute capsGroup $base
+
+#create root of beam
+mark
+set xmid baseplate:dx/2
+set zmid baseplate:dz/2
+box xmid-beam:root_dx/2 0 zmid-beam:root_dz/2 beam:root_dx 0 beam:root_dz
+select face
+   attribute capsGroup $root
+
+#create end of beam
+set enddx beam:root_dx*beam:taper_x
+set enddz beam:root_dz*beam:taper_z
+box xmid-enddx/2 beam:length zmid-enddz/2 enddx 0 enddz
+select face
+   attribute capsGroup $tip
+
+#create beam made of sheet bodies
+rule
+extract 0
+select face
+ attribute comp $skin
+union
+
+#create end mass
+box xmid-endmass:dx/2 beam:length zmid-endmass:dz/2 endmass:dx endmass:dy endmass:dz
+extract 0
+select face
+   attribute capsGroup $endmass
+union
+
+
+#create stiffener1
+#set stiffener1_dy stiffener1:rel_position*beam:length
+# Compute local beam width and depth at stiffener height
+#set stiffener1_dx beam:root_dx*(1-(stiffener1:rel_position*(1-beam:taper_x)))
+#set stiffener1_dz beam:root_dz*(1-(stiffener1:rel_position*(1-beam:taper_z)))
+#box xmid-stiffener1_dx/2 stiffener1_dy zmid-stiffener1_dz/2 stiffener1_dx 0 stiffener1_dz
+
+#create hole 1
+#set stiffener1_holedx stiffener1_dx*stiffener1:hole_fractiondx
+#set stiffener1_holedz stiffener1_dz*stiffener1:hole_fractiondz
+#box xmid-stiffener1_holedx/2 stiffener1_dy zmid-stiffener1_holedz/2 stiffener1_holedx 0 stiffener1_holedz
+#subtract
+#union
+
+set offset_stiffener 0.0
+set offset_hole 0.3
+set stiffener:polyD 1-stiffener:polyB-stiffener:polyC
+set stiffener:hole_polyD 1-stiffener:hole_polyB-stiffener:hole_polyC
+patbeg istiff stiffener_count
+   #create polynomial for defining stiffener position
+   set xi offset_stiffener+(1-2*offset_stiffener)*istiff/(stiffener_count+1)      # Normalize xi between 0 and 1
+   set fxi stiffener:polyD*xi*xi*xi+stiffener:polyC*xi*xi+stiffener:polyB*xi     # Compute polynomial function
+   #create stiffener
+   set stiffener_dy fxi*beam:length
+   # Compute local beam width and depth at stiffener height
+   set stiffener_dx beam:root_dx*(1-(fxi*(1-beam:taper_x)))
+   set stiffener_dz beam:root_dz*(1-(fxi*(1-beam:taper_z)))
+   box xmid-stiffener_dx/2 stiffener_dy zmid-stiffener_dz/2 stiffener_dx 0 stiffener_dz
+
+   #create polynomial for defining hole size
+   set xi2 offset_hole+(1-2*offset_hole)*istiff/(stiffener_count+1)      # Normalize xi between 0 and 1
+   set fxi2 stiffener:hole_polyD*xi2*xi2*xi2+stiffener:hole_polyC*xi2*xi2+stiffener:hole_polyB*xi2     # Compute polynomial function
+   #create hole
+   set stiffener_holedx stiffener_dx*fxi2
+   set stiffener_holedz stiffener_dz*fxi2
+   box xmid-stiffener_holedx/2 stiffener_dy zmid-stiffener_holedz/2 stiffener_holedx 0 stiffener_holedz
+   subtract    
+   select face
+   attribute capsGroup !$stiff+istiff
+   attribute comp $stiff
+   
+   union
+   
+patend
+
+#applies properties to all faces
+#--- select face
+#--- attribute capsGroup $all
+
+udprim editAttr filename <<
+
+FACE HAS comp=skin
+AND ADJ2FACE capsGroup=stiff1
+SET capsGroup=skin1
+
+patbeg istiff2 stiffener_count-1
+   FACE HAS comp=skin
+   AND ADJ2FACE capsGroup=!$stiff+istiff2
+   AND ADJ2FACE capsGroup=!$stiff+(istiff2+1)
+   SET capsGroup=!$skin+(istiff2+1)
+patend
+
+FACE HAS comp=skin
+AND ADJ2FACE capsGroup=!$stiff+stiffener_count
+AND ADJ2FACE capsGroup=endmass
+SET capsGroup=!$skin+(stiffener_count+1)
+
+>>
+
+#tell FEA what body
+select body
+attribute capsAIM $egadsTessAIM;tacsAIM
+
+#Apply loading
+select face
+attribute capsLoad $loading
+
+end
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||

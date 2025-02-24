@@ -1,0 +1,5 @@
+*.out
+*.hst
+*.txt
+*.jrnl
+capsStruct*
