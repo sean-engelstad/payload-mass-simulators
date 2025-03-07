@@ -1,0 +1,338 @@
+despmtr base:w 1
+despmtr base:h 3
+
+despmtr xlat:l 2
+despmtr xlat:w 0.5
+despmtr zlat:l 1.5
+despmtr zlat:w 0.5
+
+despmtr x:h 4
+despmtr x:w 0.5
+despmtr z:h 4
+despmtr z:w 0.5
+
+#despmtr xn_xlat:l 0.5
+#despmtr xn_xlat:w 0.5
+#despmtr xn_zlat:l 0.5
+#despmtr xn_zlat:w 0.5
+
+#despmtr xn_x1:h 2 # height of xp and xn members
+#despmtr xn_x1:w 0.5
+#despmtr xn_z1:h 2 # height of zp and zn members
+#despmtr xn_z1:w 0.5
+ 
+despmtr xlat2:l 0.5
+despmtr xlat2:w 0.5
+despmtr zlat2:l 0.5
+despmtr zlat2:w 0.5
+
+despmtr x2:h 2
+despmtr x2:w 0.5
+despmtr z2:h 2
+despmtr z2:w 0.5
+
+# first level of tuning fork
+# ---------------------------
+# base of first level
+#set  base:h 3 # base height
+set base:mid base:w/2
+box 0 0 -base:mid 0 base:h base:w
+select face
+ attribute comp $base
+ attribute capsGroup $base-T
+
+select edge 1
+ attribute capsConstraint $root
+select node 1
+select add 2
+ attribute capsConstraint $root
+
+# four lateral bars
+#set xlat:l 2
+#set zlat:l 1.5
+# zneg
+box -base:mid/2  base:h 0 zlat:w 0 -zlat:l
+ attribute comp $zn1
+box -zlat:w/2 0 -base:mid zlat:w base:h*1.1 0
+subtract
+union
+# zpos
+box -base:mid/2  base:h 0 zlat:w 0 zlat:l
+ attribute comp $zp1
+box -zlat:w/2 0 base:mid zlat:w base:h*1.1 0
+subtract
+union
+# xneg
+box 0  base:h -base:mid/2 -xlat:l 0 xlat:w
+ attribute comp $xn1
+union
+# xpos
+box 0  base:h -base:mid/2 xlat:l 0 xlat:w
+ attribute comp $xp1
+union
+
+# union
+#patbeg foo 4
+#   union
+#patend
+
+# four vertical bars
+#set x1:h 4 # height of xp and xn members
+# up from xneg
+box -xlat:l  base:h -base:mid/2 0 x:h x:w
+ attribute comp $xn1v
+union
+# up from xpos
+box xlat:l  base:h -base:mid/2 0 x:h x:w
+ attribute comp $xp1v
+union
+#set z1:h 4 # height of zp and zn members
+# up from zneg
+box -base:mid/2  base:h -zlat:l z:w z:h 0
+ attribute comp $zn1v
+union
+# up from zpos
+box -base:mid/2  base:h zlat:l z:w z:h 0
+ attribute comp $zp1v
+union
+
+
+#--- throw 999
+
+# second level of tuning fork
+# ------------------------------------
+
+# level 2 : xneg tuning fork
+# ---
+
+
+# set center of current tuning fork
+set yc base:h+x:h
+set xc -xlat:l
+set zc 0.0
+
+# four lateral bars
+# xneg
+box xc yc zc-xlat2:w/2 -xlat2:l 0 xlat2:w
+ attribute comp $xn2
+# xpos
+box xc yc zc-xlat2:w/2 xlat2:l 0 xlat2:w
+ attribute comp $xn2
+# zneg
+box xc-zlat2:w/2 yc zc zlat2:w 0 -zlat2:l
+ attribute comp $xn2
+# zpos
+box xc-zlat2:w/2 yc zc zlat2:w 0 zlat2:l
+ attribute comp $xn2
+# union
+patbeg foo 4
+   union
+patend
+
+# four vertical bars
+# up from xneg
+box xc-xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+ attribute comp $xn2v
+union
+# up from xpos
+box xc+xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+ attribute comp $xn2v
+union
+# up from zneg
+box xc-zlat2:w/2 yc zc-zlat2:l z2:w z2:h 0
+ attribute comp $xn2v
+union
+# up from zpos
+box xc-zlat2:w/2 yc zc+zlat2:l z2:w z2:h 0
+ attribute comp $xn2v
+union
+
+###FINISHED TO HERE
+# level 2 : xpos tuning fork
+# ---
+#set xlat2:l 0.5
+#set zlat2:l 0.5
+
+# set center of current tuning fork
+set yc  base:h+x:h
+set xc xlat:l
+set zc 0.0
+
+# four lateral bars
+# xneg
+box xc yc zc-xlat2:w/2 -xlat2:l 0 xlat2:w
+ attribute comp $xp2
+# xpos
+box xc yc zc-xlat2:w/2 xlat2:l 0 xlat2:w
+ attribute comp $xp2
+# zneg
+box xc-zlat2:w/2 yc zc zlat2:w 0 -zlat2:l
+ attribute comp $xp2
+# zpos
+box xc-zlat2:w/2 yc zc zlat2:w 0 zlat2:l
+ attribute comp $xp2
+# union
+patbeg foo 4
+   union
+patend
+
+# four vertical bars
+# up from xneg
+box xc-xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+ attribute comp $xp2v
+union
+# up from xpos
+box xc+xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+ attribute comp $xp2v
+union
+# up from zneg
+box xc-zlat2:w/2 yc zc-zlat2:l z2:w z2:h 0
+ attribute comp $xp2v
+union
+# up from zpos
+box xc-zlat2:w/2 yc zc+zlat2:l z2:w z2:h 0
+ attribute comp $xp2v
+union
+
+
+# level 2 : zneg tuning fork
+# ---
+
+# set center of current tuning fork
+set yc  base:h+z:h
+set xc 0.0
+set zc -zlat:l
+
+# four lateral bars
+# xneg
+box xc yc zc-xlat2:w/2 -xlat2:l 0 xlat2:w
+ attribute comp $zn2
+# xpos
+box xc yc zc-xlat2:w/2 xlat2:l 0 xlat2:w
+ attribute comp $zn2
+# zneg
+box xc-zlat2:w/2 yc zc zlat2:w 0 -zlat2:l
+ attribute comp $zn2
+# zpos
+box xc-zlat2:w/2 yc zc zlat2:w 0 zlat2:l
+ attribute comp $zn2
+# union
+patbeg foo 4
+   union
+patend
+
+# four vertical bars
+# up from xneg
+box xc-xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+ attribute comp $zn2v
+union
+# up from xpos
+box xc+xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+ attribute comp $zn2v
+union
+# up from zneg
+box xc-zlat2:w/2 yc zc-zlat2:l z2:w z2:h 0
+ attribute comp $zn2v
+union
+# up from zpos
+box xc-zlat2:w/2 yc zc+zlat2:l z2:w z2:h 0
+ attribute comp $zn2v
+union
+
+
+# level 2 : zpos tuning fork
+# ---
+
+# set center of current tuning fork
+set yc  base:h+z:h
+set xc 0.0
+set zc zlat:l
+
+# four lateral bars
+# xneg
+box xc yc zc-xlat2:w/2 -xlat2:l 0 xlat2:w
+ attribute comp $zp2
+# xpos
+box xc yc zc-xlat2:w/2 xlat2:l 0 xlat2:w
+ attribute comp $zp2
+# zneg
+box xc-zlat2:w/2 yc zc zlat2:w 0 -zlat2:l
+ attribute comp $zp2
+# zpos
+box xc-zlat2:w/2 yc zc zlat2:w 0 zlat2:l
+ attribute comp $zp2
+# union
+patbeg foo 4
+   union
+patend
+
+# four vertical bars
+# up from xneg
+box xc-xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+ attribute comp $zp2v
+union
+# up from xpos
+box xc+xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+ attribute comp $zp2v
+union
+# up from zneg
+box xc-zlat2:w/2 yc zc-zlat2:l z2:w z2:h 0
+ attribute comp $zp2v
+union
+# up from zpos
+box xc-zlat2:w/2 yc zc+zlat2:l z2:w z2:h 0
+ attribute comp $zp2v
+union
+
+
+
+udprim editAttr filename <<
+patbeg level 2
+   FACE HAS comp=!$xn+level
+   SET capsGroup=!$xn+level+$-T
+   FACE HAS comp=!$xn+level+$v
+   SET capsGroup=!$xn+level+$v-T
+   FACE HAS comp=!$xp+level
+   SET capsGroup=!$xp+level+$-T
+   FACE HAS comp=!$xp+level+$v
+   SET capsGroup=!$xp+level+$v-T
+   FACE HAS comp=!$zn+level
+   SET capsGroup=!$zn+level+$-T
+   FACE HAS comp=!$zn+level+$v
+   SET capsGroup=!$zn+level+$v-T
+   FACE HAS comp=!$zp+level
+   SET capsGroup=!$zp+level+$-T
+   FACE HAS comp=!$zp+level+$v
+   SET capsGroup=!$zp+level+$v-T
+patend
+
+>>
+
+
+#tell FEA what body
+select body
+attribute capsAIM $egadsTessAIM;tacsAIM
+
+#Apply loading
+select face
+attribute capsLoad $loading
+
+
+
+
+# maybe add a third level to tuning fork
+# -----------------------------------
+# TODO
+
+
+
+
+# other TODO
+# -------------
+# start with level 2, can goto level 3 later
+# make sure final geometry is one body
+# setup python script with matching shape variables for all despmtr
+# also thickness variables for each separate face in the structure
+
+end
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
