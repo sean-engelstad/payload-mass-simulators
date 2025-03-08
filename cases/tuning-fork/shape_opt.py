@@ -42,7 +42,7 @@ thick_scale = 10 # was 100, prob larger here?
 for level in range(1, 3):
     for face in ['xp', 'xn', 'zp', 'zn']:
         for orientation in ['', 'v']:
-            capsGroup = f"{face}{level}{orientation}-T"
+            capsGroup = f"{face}{level}{orientation}T"
             caps2tacs.ShellProperty(
                 caps_group=capsGroup, material=aluminum, membrane_thickness=init_thickness
             ).register_to(tacs_model)
@@ -50,7 +50,7 @@ for level in range(1, 3):
                 lower=1e-4, upper=1.0, scale=thick_scale
             ).register_to(fork)
 
-capsGroup = "base-T"
+capsGroup = "baseT"
 caps2tacs.ShellProperty(
     caps_group=capsGroup, material=aluminum, membrane_thickness=init_thickness
 ).register_to(tacs_model)

@@ -18,7 +18,8 @@ fork = Body.aeroelastic(
 print(f"proc on rank {comm.rank}")
 
 tacs_model = caps2tacs.TacsModel.build(
-    csm_file="tuning-fork.csm", comm=comm, active_procs=[0]
+    csm_file="tuning-fork.csm",  #"tuning-fork-debug.csm"
+    comm=comm, active_procs=[0]
 )
 tacs_model.mesh_aim.set_mesh(
     edge_pt_min=15,
@@ -42,7 +43,7 @@ thick_scale = 10 # was 100, prob larger here?
 for level in range(1, 3):
     for face in ['xp', 'xn', 'zp', 'zn']:
         for orientation in ['', 'v']:
-            capsGroup = f"{face}{level}{orientation}-T"
+            capsGroup = f"{face}{level}{orientation}T"
             caps2tacs.ShellProperty(
                 caps_group=capsGroup, material=aluminum, membrane_thickness=init_thickness
             ).register_to(tacs_model)
@@ -50,13 +51,21 @@ for level in range(1, 3):
                 lower=1e-4, upper=1.0, scale=thick_scale
             ).register_to(fork)
 
-capsGroup = "base-T"
+capsGroup = "baseT"
 caps2tacs.ShellProperty(
     caps_group=capsGroup, material=aluminum, membrane_thickness=init_thickness
 ).register_to(tacs_model)
 Variable.structural(capsGroup, value=init_thickness).set_bounds(
     lower=1e-4, upper=1.0, scale=thick_scale
 ).register_to(fork)
+
+# capsGroup = f"all"
+# caps2tacs.ShellProperty(
+#     caps_group=capsGroup, material=aluminum, membrane_thickness=init_thickness
+# ).register_to(tacs_model)
+# Variable.structural(capsGroup, value=init_thickness).set_bounds(
+#     lower=1e-4, upper=1.0, scale=thick_scale
+# ).register_to(fork)
 
 caps2tacs.PinConstraint("root",dof_constraint=12346).register_to(tacs_model)
 #caps2tacs.GridForce("loading", direction=[0, 0, 1.0], magnitude=10).register_to(tacs_model)

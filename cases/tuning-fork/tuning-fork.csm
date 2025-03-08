@@ -39,7 +39,7 @@ set base:mid base:w/2
 box 0 0 -base:mid 0 base:h base:w
 select face
  attribute comp $base
- attribute capsGroup $base-T
+ attribute capsGroup $baseT
 
 select edge 1
  attribute capsConstraint $root
@@ -289,21 +289,21 @@ union
 udprim editAttr filename <<
 patbeg level 2
    FACE HAS comp=!$xn+level
-   SET capsGroup=!$xn+level+$-T
+   SET capsGroup=!$xn+level+$T
    FACE HAS comp=!$xn+level+$v
-   SET capsGroup=!$xn+level+$v-T
+   SET capsGroup=!$xn+level+$vT
    FACE HAS comp=!$xp+level
-   SET capsGroup=!$xp+level+$-T
+   SET capsGroup=!$xp+level+$T
    FACE HAS comp=!$xp+level+$v
-   SET capsGroup=!$xp+level+$v-T
+   SET capsGroup=!$xp+level+$vT
    FACE HAS comp=!$zn+level
-   SET capsGroup=!$zn+level+$-T
+   SET capsGroup=!$zn+level+$T
    FACE HAS comp=!$zn+level+$v
-   SET capsGroup=!$zn+level+$v-T
+   SET capsGroup=!$zn+level+$vT
    FACE HAS comp=!$zp+level
-   SET capsGroup=!$zp+level+$-T
+   SET capsGroup=!$zp+level+$T
    FACE HAS comp=!$zp+level+$v
-   SET capsGroup=!$zp+level+$v-T
+   SET capsGroup=!$zp+level+$vT
 patend
 
 >>
