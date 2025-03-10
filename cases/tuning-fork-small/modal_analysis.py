@@ -18,14 +18,15 @@ fork = Body.aeroelastic(
 print(f"proc on rank {comm.rank}")
 
 tacs_model = caps2tacs.TacsModel.build(
-    csm_file="tuning-fork.csm",  #"tuning-fork-debug.csm"
+    csm_file="tuning-fork-small.csm",  #"tuning-fork-debug.csm"
     comm=comm, active_procs=[0]
 )
 tacs_model.mesh_aim.set_mesh(
-    edge_pt_min=3,
+    mesh_elements="Mixed",
+    edge_pt_min=10,
     edge_pt_max=25,
-    global_mesh_size=0.1,
-    max_surf_offset=0.01,
+    global_mesh_size=1.0,
+    max_surf_offset=0.1,
     max_dihedral_angle=15,
 ).register_to(tacs_model)
 tacs_aim = tacs_model.tacs_aim
@@ -34,19 +35,19 @@ aluminum = caps2tacs.Isotropic.aluminum().register_to(tacs_model)
 
 egads_aim = tacs_model.mesh_aim
 # directly set mesh settings for some edges
-# if comm.rank == 0:
-#     # choose the number of nodes on each edge
-#     nsmall = 5
-#     nlarge = 2 * nsmall + 1
-#     nlarge2 = 4 * nsmall + 1
-#     egads_aim.aim.input.Mesh_Sizing = {
-#         "l2-int": { "numEdgePoints": nsmall },
-#         "l1-int": { "numEdgePoints": nsmall },
-#         "base-side" : {"numEdgePoints" : nsmall },
-#         "l1-v1": { "numEdgePoints": nlarge },
-#         "v2": { "numEdgePoints": nlarge },
-#         "base-bot": { "numEdgePoints": nlarge2 },
-#     }
+if comm.rank == 0:
+    # choose the number of nodes on each edge
+    nsmall = 5
+    nlarge = 2 * nsmall + 1
+    nlarge2 = 4 * nsmall + 1
+    egads_aim.aim.input.Mesh_Sizing = {
+        # "l2-int": { "numEdgePoints": nsmall },
+        "l1-int": { "numEdgePoints": nsmall },
+        # "base-side" : {"numEdgePoints" : nsmall },
+        # "l1-v1z": { "numEdgePoints": nsmall },
+        # "v2": { "numEdgePoints": nlarge },
+        # "base-bot": { "numEdgePoints": nlarge2 },
+    }
 
 # nstiff = int(tacs_model.get_config_parameter("stiffener_count"))
 # nskin = nstiff+1
@@ -56,7 +57,7 @@ init_thickness = 0.05
 thick_scale = 10 # was 100, prob larger here?
 
 
-for level in range(1, 3):
+for level in range(1, 1 + 1):
     for face in ['xp', 'xn', 'zp', 'zn']:
         for orientation in ['', 'v']:
             capsGroup = f"{face}{level}{orientation}T"
@@ -89,34 +90,37 @@ caps2tacs.PinConstraint("root",dof_constraint=12346).register_to(tacs_model)
 f2f_model.structural = tacs_model
 
 # SHAPE VARIABLES
+dir = 'l'; value = 2.0; dim = 'x'
+Variable.shape(f"{dir}lat{level}:{dim}", value=value).set_bounds(
+    lower=0.1, upper=10.0
+).register_to(fork)
+
 # shape_var_list = [2, 1.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
 # ct = 0
-# for dim in ["l"]: #["l", "w"]:
-#     for level in [""]: #["","2"]:
+# for dim in ["l", "w"]:
+#     for level in ["","2"]:
 #         for dir in ["x","z"]:
-#             # took out xlat2:w and zlat2:w now matches x2:w, z2:w
-#             if dim == 'l' and level == '' and dir == 'z':
+#             if level != "2":
 #                 Variable.shape(f"{dir}lat{level}:{dim}", value=shape_var_list[ct]).set_bounds(
 #                     lower=0.1, upper=10.0
 #                 ).register_to(fork)
 #             ct += 1
 
-shape_var_list = [4, 4, 2, 2, 0.8, 0.5, 0.5, 0.5]
-ct = 0        
-for dim in ["h", "w"]:
-    for level in ["","2"]:
-        for dir in ["x","z"]:
-            if dim == 'w' and level == '' and dir == 'x':
-                Variable.shape(f"{dir}{level}:{dim}", value=shape_var_list[ct]).set_bounds(
-                    lower=0.1, upper=10.0
-                ).register_to(fork)
-            ct += 1
+# shape_var_list = [4, 4, 2, 2, 0.5, 0.5, 0.5, 0.5]
+# ct = 0        
+# for dim in ["h", "w"]:
+#     for level in ["","2"]:
+#         for dir in ["x","z"]:
+#             if level != "2":
+#                 Variable.shape(f"{dir}{level}:{dim}", value=shape_var_list[ct]).set_bounds(
+#                     lower=0.1, upper=10.0
+#                 ).register_to(fork)
+#             ct += 1
 
 shape_var_list = [1, 3]
 ct = 0
 for dim in ["w", "h"]:
-    # if dim != 'w': # this variable is messed up right now
-    Variable.shape(f"base:{dim}", value=1.0).set_bounds(
+    Variable.shape(f"base:{dim}", value=shape_var_list[ct]).set_bounds(
         lower=0.1, upper=10.0
     ).register_to(fork)
     ct += 1

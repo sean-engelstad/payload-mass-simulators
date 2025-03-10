@@ -1,0 +1,276 @@
+despmtr base:w 1
+despmtr base:h 3
+
+despmtr xlat:l 2
+#--- despmtr x:w 0.5
+despmtr zlat:l 1.5
+#--- despmtr z:w 0.5
+
+despmtr x:h 4
+despmtr x:w 0.5
+despmtr z:h 4
+despmtr z:w 0.5
+
+#despmtr xn_xlat:l 0.5
+#despmtr xn_x:w 0.5
+#despmtr xn_zlat:l 0.5
+#despmtr xn_z:w 0.5
+
+#despmtr xn_x1:h 2 # height of xp and xn members
+#despmtr xn_x1:w 0.5
+#despmtr xn_z1:h 2 # height of zp and zn members
+#despmtr xn_z1:w 0.5
+ 
+#--- despmtr xlat2:l 0.5
+#--- despmtr xlat2:w 0.5
+#--- despmtr zlat2:l 0.5
+#--- despmtr zlat2:w 0.5
+#--- 
+#--- despmtr x2:h 2
+#--- despmtr x2:w 0.5
+#--- despmtr z2:h 2
+#--- despmtr z2:w 0.5
+
+# first level of tuning fork
+# ---------------------------
+# base of first level
+#set  base:h 3 # base height
+set base:mid base:w/2
+box 0 0 -base:mid 0 base:h base:w
+select face
+ attribute comp $base
+ attribute capsGroup $baseT
+select edge 1
+ attribute capsMesh $base-bot
+select edge 2
+select add 4
+attribute capsMesh $base-side
+
+select edge 1
+ attribute capsConstraint $root
+select node 1
+select add 2
+ attribute capsConstraint $root
+
+store base
+#--- restore base
+
+# four lateral bars
+#set xlat:l 2
+#set zlat:l 1.5
+# zneg
+restore base
+box -z:w/2  base:h 0 z:w 0 -zlat:l
+ attribute comp $zn1
+box -z:w/2 0 -base:mid z:w base:h*1.1 0
+subtract
+#--- box 0 0 -base:mid 0 base:h*1.1 -(zlat:l-base:mid)
+#--- subtract
+union
+# zpos
+restore base
+box -z:w/2  base:h 0 z:w 0 zlat:l
+ attribute comp $zp1
+box -z:w/2 0 base:mid z:w base:h*1.1 0
+subtract
+#--- box 0 0 base:mid 0 base:h*1.1 (zlat:l-base:mid)
+#--- subtract
+union
+union
+# xneg
+box 0  base:h -x:w/2 -xlat:l 0 x:w
+ attribute comp $xn1
+union
+# xpos
+box 0  base:h -x:w/2 xlat:l 0 x:w
+ attribute comp $xp1
+union
+
+# union
+#patbeg foo 4
+#   union
+#patend
+
+# four vertical bars
+# --------------------
+#set x1:h 4 # height of xp and xn members
+# up from xneg
+box -xlat:l  base:h -x:w/2 0 x:h x:w
+ attribute comp $xn1v
+union
+# up from xpos
+box xlat:l  base:h -x:w/2 0 x:h x:w
+ attribute comp $xp1v
+union
+#set z1:h 4 # height of zp and zn members
+# up from zneg
+box -z:w/2  base:h -zlat:l z:w z:h 0
+ attribute comp $zn1v
+box 0 base:h -zlat:l-1 0 z:h 2
+subtract
+union
+# up from zpos
+box -z:w/2  base:h zlat:l z:w z:h 0
+ attribute comp $zp1v
+box 0 base:h zlat:l-1 0 z:h 2
+subtract
+union
+
+# make extra edges in the lateral section
+#- -------------------------------
+# this fixes the dxyz node missing errors for shape optimization
+# we need to have 4 edges, 4 nodes in each section to get regular mesh (otherwise shape opt breaks)
+# and some of the intersections are producing extra nodes, so we have to subdivide domain further (Sean)
+
+# zn to zp slide
+box 0 -1 -zlat:l-1 0 base:h+x:h+2 (2*zlat:l+2)
+subtract
+
+# xn to xp side
+box -xlat:l-1 -1 0 (2*xlat:l+2) base:h+x:h+2 0
+subtract
+
+# xn to xp side on base only at 1/4 pt
+box -xlat:l-1 -1 -base:mid/2 (2*xlat:l+2) base:h+1 0
+subtract
+box -xlat:l-1 -1 base:mid/2 (2*xlat:l+2) base:h+1 0
+subtract
+
+#throw 999
+
+
+udprim editAttr filename <<
+patbeg level 1
+   FACE HAS comp=!$xn+level
+   SET capsGroup=!$xn+level+$T
+   FACE HAS comp=!$xn+level+$v
+   SET capsGroup=!$xn+level+$vT
+   FACE HAS comp=!$xp+level
+   SET capsGroup=!$xp+level+$T
+   FACE HAS comp=!$xp+level+$v
+   SET capsGroup=!$xp+level+$vT
+   FACE HAS comp=!$zn+level
+   SET capsGroup=!$zn+level+$T
+   FACE HAS comp=!$zn+level+$v
+   SET capsGroup=!$zn+level+$vT
+   FACE HAS comp=!$zp+level
+   SET capsGroup=!$zp+level+$T
+   FACE HAS comp=!$zp+level+$v
+   SET capsGroup=!$zp+level+$vT
+patend
+
+#--- # mesh settings
+#--- EDGE ADJ2FACE comp=xp1v
+#--- AND ADJ2FACE comp=xp2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=xn1v
+#--- AND ADJ2FACE comp=xn2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=zp1v
+#--- AND ADJ2FACE comp=zp2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=zn1v
+#--- AND ADJ2FACE comp=zn2
+#--- SET capsMesh=v1-l2
+
+EDGE ADJ2FACE comp=zn1
+AND ADJ2FACE comp=zn1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=zp1
+AND ADJ2FACE comp=zp1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=xn1
+AND ADJ2FACE comp=xn1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=xp1
+AND ADJ2FACE comp=xp1v
+SET capsMesh=l1-v1
+
+# xp
+FACE ADJ2FACE comp=xp1v
+AND ADJ2FACE comp=xp2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=xp2v
+SET capsMesh=v2
+
+# xn
+FACE ADJ2FACE comp=xn1v
+AND ADJ2FACE comp=xn2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=xn2v
+SET capsMesh=v2
+
+# zn
+FACE ADJ2FACE comp=zn1v
+AND ADJ2FACE comp=zn2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=zn2v
+SET capsMesh=v2
+
+# zp
+FACE ADJ2FACE comp=zp1v
+AND ADJ2FACE comp=zp2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=zp2v
+SET capsMesh=v2
+
+# fix edges near top of base
+FACE ADJ2FACE comp=base
+SET capsMesh=Fb-l1
+
+EDGE ADJ2FACE capsMesh=Fb-l1
+SET capsMesh=l1-int
+
+>>
+
+
+#tell FEA what body
+select body
+attribute capsAIM $egadsTessAIM;tacsAIM
+
+#Apply loading
+select face
+attribute capsLoad $loading
+
+
+
+
+# maybe add a third level to tuning fork
+# -----------------------------------
+# TODO
+
+
+
+
+# other TODO
+# -------------
+# start with level 2, can goto level 3 later
+# make sure final geometry is one body
+# setup python script with matching shape variables for all despmtr
+# also thickness variables for each separate face in the structure
+
+end
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|||

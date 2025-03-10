@@ -18,35 +18,18 @@ fork = Body.aeroelastic(
 print(f"proc on rank {comm.rank}")
 
 tacs_model = caps2tacs.TacsModel.build(
-    csm_file="tuning-fork.csm",  #"tuning-fork-debug.csm"
-    comm=comm, active_procs=[0]
+    csm_file="tuning-fork-small.csm", comm=comm, active_procs=[0]
 )
 tacs_model.mesh_aim.set_mesh(
-    edge_pt_min=3,
-    edge_pt_max=25,
-    global_mesh_size=0.1,
+    edge_pt_min=5,
+    edge_pt_max=20,
+    global_mesh_size=1.0,
     max_surf_offset=0.01,
     max_dihedral_angle=15,
 ).register_to(tacs_model)
 tacs_aim = tacs_model.tacs_aim
 
 aluminum = caps2tacs.Isotropic.aluminum().register_to(tacs_model)
-
-egads_aim = tacs_model.mesh_aim
-# directly set mesh settings for some edges
-# if comm.rank == 0:
-#     # choose the number of nodes on each edge
-#     nsmall = 5
-#     nlarge = 2 * nsmall + 1
-#     nlarge2 = 4 * nsmall + 1
-#     egads_aim.aim.input.Mesh_Sizing = {
-#         "l2-int": { "numEdgePoints": nsmall },
-#         "l1-int": { "numEdgePoints": nsmall },
-#         "base-side" : {"numEdgePoints" : nsmall },
-#         "l1-v1": { "numEdgePoints": nlarge },
-#         "v2": { "numEdgePoints": nlarge },
-#         "base-bot": { "numEdgePoints": nlarge2 },
-#     }
 
 # nstiff = int(tacs_model.get_config_parameter("stiffener_count"))
 # nskin = nstiff+1
@@ -56,7 +39,7 @@ init_thickness = 0.05
 thick_scale = 10 # was 100, prob larger here?
 
 
-for level in range(1, 3):
+for level in range(1, 1+1):
     for face in ['xp', 'xn', 'zp', 'zn']:
         for orientation in ['', 'v']:
             capsGroup = f"{face}{level}{orientation}T"
@@ -75,51 +58,39 @@ Variable.structural(capsGroup, value=init_thickness).set_bounds(
     lower=1e-4, upper=1.0, scale=thick_scale
 ).register_to(fork)
 
-# capsGroup = f"all"
-# caps2tacs.ShellProperty(
-#     caps_group=capsGroup, material=aluminum, membrane_thickness=init_thickness
-# ).register_to(tacs_model)
-# Variable.structural(capsGroup, value=init_thickness).set_bounds(
-#     lower=1e-4, upper=1.0, scale=thick_scale
-# ).register_to(fork)
-
 caps2tacs.PinConstraint("root",dof_constraint=12346).register_to(tacs_model)
 #caps2tacs.GridForce("loading", direction=[0, 0, 1.0], magnitude=10).register_to(tacs_model)
 
 f2f_model.structural = tacs_model
 
 # SHAPE VARIABLES
-# shape_var_list = [2, 1.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
-# ct = 0
-# for dim in ["l"]: #["l", "w"]:
-#     for level in [""]: #["","2"]:
-#         for dir in ["x","z"]:
-#             # took out xlat2:w and zlat2:w now matches x2:w, z2:w
-#             if dim == 'l' and level == '' and dir == 'z':
-#                 Variable.shape(f"{dir}lat{level}:{dim}", value=shape_var_list[ct]).set_bounds(
-#                     lower=0.1, upper=10.0
-#                 ).register_to(fork)
-#             ct += 1
-
-shape_var_list = [4, 4, 2, 2, 0.8, 0.5, 0.5, 0.5]
-ct = 0        
-for dim in ["h", "w"]:
-    for level in ["","2"]:
+shape_var_list = [2, 1.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+ct = 0
+for dim in ["l", "w"]:
+    for level in [""]: #["","2"]:
         for dir in ["x","z"]:
-            if dim == 'w' and level == '' and dir == 'x':
-                Variable.shape(f"{dir}{level}:{dim}", value=shape_var_list[ct]).set_bounds(
-                    lower=0.1, upper=10.0
-                ).register_to(fork)
+            Variable.shape(f"{dir}lat{level}:{dim}", value=shape_var_list[ct]).set_bounds(
+                lower=0.1, upper=10.0
+            ).register_to(fork)
             ct += 1
 
-shape_var_list = [1, 3]
-ct = 0
-for dim in ["w", "h"]:
-    # if dim != 'w': # this variable is messed up right now
-    Variable.shape(f"base:{dim}", value=1.0).set_bounds(
-        lower=0.1, upper=10.0
-    ).register_to(fork)
-    ct += 1
+# shape_var_list = [4, 4, 2, 2, 0.5, 0.5, 0.5, 0.5]
+# ct = 0        
+# for dim in ["h", "w"]:
+#     for level in ["","2"]:
+#         for dir in ["x","z"]:
+#             Variable.shape(f"{dir}{level}:{dim}", value=shape_var_list[ct]).set_bounds(
+#                 lower=0.1, upper=10.0
+#             ).register_to(fork)
+#             ct += 1
+
+# shape_var_list = [1, 3]
+# ct = 0
+# for dim in ["w", "h"]:
+#     Variable.shape(f"base:{dim}", value=1.0).set_bounds(
+#         lower=0.1, upper=10.0
+#     ).register_to(fork)
+#     ct += 1
 
 # register the funtofem Body to the model
 fork.register_to(f2f_model)
@@ -139,6 +110,18 @@ Function.mass().optimize(scale=1.0e-2, objective=True, plot=True).register_to(
 #     scale=30.0, upper=0.267, objective=False, plot=True
 # ).register_to(tacs_scenario)
 tacs_scenario.register_to(f2f_model)
+
+# #Linear constraints
+# # ---------------------
+# left_var = f2f_model.get_variables(f"{comp_group}{icomp}-{adj_type}")
+# right_var = f2f_model.get_variables(f"{comp_group}{icomp+1}-{adj_type}")
+# # print(f"left var = {left_var}, right var = {right_var}")
+# adj_constr = left_var - right_var
+# adj_constr.set_name(f"{comp_group}{icomp}-adj_{adj_type}").optimize(
+#     lower=-adj_value, upper=adj_value, scale=10.0, objective=False
+# ).register_to(f2f_model)
+
+
 
 # run the pre analysis to build tacs input files
 # alternative is to call tacs_aim.setup_aim().pre_analysis() with tacs_aim = tacs_model.tacs_aim
@@ -354,9 +337,87 @@ class TacsModalShape:
 # would like nEig = 6 later
 tacs_modal_shape = TacsModalShape(tacs_model, f2f_model, sigma=10.0, nEig=4)
 
-funcs,_ = tacs_modal_shape.get_functions({}); print(f"{funcs=}")
+# debugging
+# funcs,_ = tacs_modal_shape.get_functions({}); print(f"{funcs=}")
 # sens,_ = tacs_modal_shape.get_function_sens({}, None); print(f"{sens=}")
 # exit()
 
 # function names for eigenvalues are "fork-model-problem_eigsm.i" for i=0,...,5
 # now we need to setup pyoptsparse optimizer..
+
+
+# create the pyoptsparse optimization problem
+opt_problem = Optimization("gbm-AE-sizing", tacs_modal_shape.get_functions)
+
+for var in f2f_model.get_variables():
+    opt_problem.addVar(
+        var.name,
+        lower=var.lower,
+        upper=var.upper,
+        value=var.value,
+        scale=var.scale
+    )
+
+# mass constraint should be:
+# mass = 0.005710147
+opt_problem.addObj(
+    f"mass-err",
+    scale=1e0,
+)
+
+# TODO : fix mass-err to not be 0
+# TODO : add CG, 2 more eigvals (first 6), and later the modal mass constraints
+#    using eigenvectors
+# TODO : survive inertial loads, check with failure index of linear static analysis
+
+for ieig in range(tacs_modal_shape.nEig):
+    opt_problem.addCon(
+        f"eigsm.{ieig}",
+        lower=target_eigvals[ieig],
+        upper=target_eigvals[ieig],
+        scale=1e-2,
+    )
+
+# add funtofem model variables to pyoptsparse
+# manager.register_to_problem(opt_problem)
+
+# run an SNOPT optimization
+snoptimizer = SNOPT(
+    options={
+        "Print frequency": 1000,
+        "Summary frequency": 10000000,
+        "Major feasibility tolerance": 1e-6,
+        "Major optimality tolerance": 1e-4,
+        "Verify level": -1,
+        "Major iterations limit": 1000,
+        "Minor iterations limit": 150000000,
+        "Iterations limit": 100000000,
+        "Major step limit": 5e-2,
+        "Nonderivative linesearch": None,
+        "Linesearch tolerance": 0.9,
+        #"Difference interval": 1e-6,
+        "Function precision": 1e-6, #results in btw 1e-4, 1e-6 step sizes
+        "New superbasics limit": 2000,
+        "Penalty parameter": 1,
+        "Scale option": 1,
+        "Hessian updates": 40,
+        "Print file": os.path.join("SNOPT_print.out"),
+        "Summary file": os.path.join("SNOPT_summary.out"),
+    }
+)
+
+hot_start = False
+sol = snoptimizer(
+    opt_problem,
+    sens=tacs_modal_shape.get_function_sens,
+    storeHistory="myhist.hst",
+    hotStart="myhist.hst" if hot_start else None,
+)
+
+# print final solution
+sol_xdict = sol.xStar
+print(f"Final solution = {sol_xdict}", flush=True)
+
+# target mass objective too?
+# setup eigenvalue constraints..
+# probably need some way to also do integer design variables..

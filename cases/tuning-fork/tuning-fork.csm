@@ -1,20 +1,20 @@
-despmtr base:w 1
+despmtr base:w 1.8 #1, 1.8
 despmtr base:h 3
 
 despmtr xlat:l 2
-despmtr xlat:w 0.5
+#--- despmtr x:w 0.5
 despmtr zlat:l 1.5
-despmtr zlat:w 0.5
+#--- despmtr z:w 0.5
 
 despmtr x:h 4
-despmtr x:w 0.5
+despmtr x:w 0.7
 despmtr z:h 4
 despmtr z:w 0.5
 
 #despmtr xn_xlat:l 0.5
-#despmtr xn_xlat:w 0.5
+#despmtr xn_x:w 0.5
 #despmtr xn_zlat:l 0.5
-#despmtr xn_zlat:w 0.5
+#despmtr xn_z:w 0.5
 
 #despmtr xn_x1:h 2 # height of xp and xn members
 #despmtr xn_x1:w 0.5
@@ -22,9 +22,9 @@ despmtr z:w 0.5
 #despmtr xn_z1:w 0.5
  
 despmtr xlat2:l 0.5
-despmtr xlat2:w 0.5
+#--- despmtr x2:w 0.5
 despmtr zlat2:l 0.5
-despmtr zlat2:w 0.5
+#--- despmtr z2:w 0.5
 
 despmtr x2:h 2
 despmtr x2:w 0.5
@@ -40,6 +40,11 @@ box 0 0 -base:mid 0 base:h base:w
 select face
  attribute comp $base
  attribute capsGroup $baseT
+select edge 1
+ attribute capsMesh $base-bot
+select edge 2
+select add 4
+attribute capsMesh $base-side
 
 select edge 1
  attribute capsConstraint $root
@@ -51,23 +56,23 @@ select add 2
 #set xlat:l 2
 #set zlat:l 1.5
 # zneg
-box -base:mid/2  base:h 0 zlat:w 0 -zlat:l
+box -z:w/2 base:h 0 z:w 0 -zlat:l
  attribute comp $zn1
-box -zlat:w/2 0 -base:mid zlat:w base:h*1.1 0
+box -z:w/2 0 -base:mid z:w base:h*1.1 0
 subtract
 union
 # zpos
-box -base:mid/2  base:h 0 zlat:w 0 zlat:l
+box -z:w/2  base:h 0 z:w 0 zlat:l
  attribute comp $zp1
-box -zlat:w/2 0 base:mid zlat:w base:h*1.1 0
+box -z:w/2 0 base:mid z:w base:h*1.1 0
 subtract
 union
 # xneg
-box 0  base:h -base:mid/2 -xlat:l 0 xlat:w
+box 0  base:h -x:w/2 -xlat:l 0 x:w
  attribute comp $xn1
 union
 # xpos
-box 0  base:h -base:mid/2 xlat:l 0 xlat:w
+box 0  base:h -x:w/2 xlat:l 0 x:w
  attribute comp $xp1
 union
 
@@ -79,20 +84,20 @@ union
 # four vertical bars
 #set x1:h 4 # height of xp and xn members
 # up from xneg
-box -xlat:l  base:h -base:mid/2 0 x:h x:w
+box -xlat:l  base:h -x:w/2 0 x:h x:w
  attribute comp $xn1v
 union
 # up from xpos
-box xlat:l  base:h -base:mid/2 0 x:h x:w
+box xlat:l  base:h -x:w/2 0 x:h x:w
  attribute comp $xp1v
 union
 #set z1:h 4 # height of zp and zn members
 # up from zneg
-box -base:mid/2  base:h -zlat:l z:w z:h 0
+box -z:w/2  base:h -zlat:l z:w z:h 0
  attribute comp $zn1v
 union
 # up from zpos
-box -base:mid/2  base:h zlat:l z:w z:h 0
+box -z:w/2  base:h zlat:l z:w z:h 0
  attribute comp $zp1v
 union
 
@@ -113,16 +118,16 @@ set zc 0.0
 
 # four lateral bars
 # xneg
-box xc yc zc-xlat2:w/2 -xlat2:l 0 xlat2:w
+box xc yc zc-x2:w/2 -xlat2:l 0 x2:w
  attribute comp $xn2
 # xpos
-box xc yc zc-xlat2:w/2 xlat2:l 0 xlat2:w
+box xc yc zc-x2:w/2 xlat2:l 0 x2:w
  attribute comp $xn2
 # zneg
-box xc-zlat2:w/2 yc zc zlat2:w 0 -zlat2:l
+box xc-z2:w/2 yc zc z2:w 0 -zlat2:l
  attribute comp $xn2
 # zpos
-box xc-zlat2:w/2 yc zc zlat2:w 0 zlat2:l
+box xc-z2:w/2 yc zc z2:w 0 zlat2:l
  attribute comp $xn2
 # union
 patbeg foo 4
@@ -131,19 +136,19 @@ patend
 
 # four vertical bars
 # up from xneg
-box xc-xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+box xc-xlat2:l yc zc-x2:w/2 0 x2:h x2:w
  attribute comp $xn2v
 union
 # up from xpos
-box xc+xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+box xc+xlat2:l yc zc-x2:w/2 0 x2:h x2:w
  attribute comp $xn2v
 union
 # up from zneg
-box xc-zlat2:w/2 yc zc-zlat2:l z2:w z2:h 0
+box xc-z2:w/2 yc zc-zlat2:l z2:w z2:h 0
  attribute comp $xn2v
 union
 # up from zpos
-box xc-zlat2:w/2 yc zc+zlat2:l z2:w z2:h 0
+box xc-z2:w/2 yc zc+zlat2:l z2:w z2:h 0
  attribute comp $xn2v
 union
 
@@ -160,16 +165,16 @@ set zc 0.0
 
 # four lateral bars
 # xneg
-box xc yc zc-xlat2:w/2 -xlat2:l 0 xlat2:w
+box xc yc zc-x2:w/2 -xlat2:l 0 x2:w
  attribute comp $xp2
 # xpos
-box xc yc zc-xlat2:w/2 xlat2:l 0 xlat2:w
+box xc yc zc-x2:w/2 xlat2:l 0 x2:w
  attribute comp $xp2
 # zneg
-box xc-zlat2:w/2 yc zc zlat2:w 0 -zlat2:l
+box xc-z2:w/2 yc zc z2:w 0 -zlat2:l
  attribute comp $xp2
 # zpos
-box xc-zlat2:w/2 yc zc zlat2:w 0 zlat2:l
+box xc-z2:w/2 yc zc z2:w 0 zlat2:l
  attribute comp $xp2
 # union
 patbeg foo 4
@@ -178,19 +183,19 @@ patend
 
 # four vertical bars
 # up from xneg
-box xc-xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+box xc-xlat2:l yc zc-x2:w/2 0 x2:h x2:w
  attribute comp $xp2v
 union
 # up from xpos
-box xc+xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+box xc+xlat2:l yc zc-x2:w/2 0 x2:h x2:w
  attribute comp $xp2v
 union
 # up from zneg
-box xc-zlat2:w/2 yc zc-zlat2:l z2:w z2:h 0
+box xc-z2:w/2 yc zc-zlat2:l z2:w z2:h 0
  attribute comp $xp2v
 union
 # up from zpos
-box xc-zlat2:w/2 yc zc+zlat2:l z2:w z2:h 0
+box xc-z2:w/2 yc zc+zlat2:l z2:w z2:h 0
  attribute comp $xp2v
 union
 
@@ -205,16 +210,16 @@ set zc -zlat:l
 
 # four lateral bars
 # xneg
-box xc yc zc-xlat2:w/2 -xlat2:l 0 xlat2:w
+box xc yc zc-x2:w/2 -xlat2:l 0 x2:w
  attribute comp $zn2
 # xpos
-box xc yc zc-xlat2:w/2 xlat2:l 0 xlat2:w
+box xc yc zc-x2:w/2 xlat2:l 0 x2:w
  attribute comp $zn2
 # zneg
-box xc-zlat2:w/2 yc zc zlat2:w 0 -zlat2:l
+box xc-z2:w/2 yc zc z2:w 0 -zlat2:l
  attribute comp $zn2
 # zpos
-box xc-zlat2:w/2 yc zc zlat2:w 0 zlat2:l
+box xc-z2:w/2 yc zc z2:w 0 zlat2:l
  attribute comp $zn2
 # union
 patbeg foo 4
@@ -223,19 +228,19 @@ patend
 
 # four vertical bars
 # up from xneg
-box xc-xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+box xc-xlat2:l yc zc-x2:w/2 0 x2:h x2:w
  attribute comp $zn2v
 union
 # up from xpos
-box xc+xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+box xc+xlat2:l yc zc-x2:w/2 0 x2:h x2:w
  attribute comp $zn2v
 union
 # up from zneg
-box xc-zlat2:w/2 yc zc-zlat2:l z2:w z2:h 0
+box xc-z2:w/2 yc zc-zlat2:l z2:w z2:h 0
  attribute comp $zn2v
 union
 # up from zpos
-box xc-zlat2:w/2 yc zc+zlat2:l z2:w z2:h 0
+box xc-z2:w/2 yc zc+zlat2:l z2:w z2:h 0
  attribute comp $zn2v
 union
 
@@ -250,16 +255,16 @@ set zc zlat:l
 
 # four lateral bars
 # xneg
-box xc yc zc-xlat2:w/2 -xlat2:l 0 xlat2:w
+box xc yc zc-x2:w/2 -xlat2:l 0 x2:w
  attribute comp $zp2
 # xpos
-box xc yc zc-xlat2:w/2 xlat2:l 0 xlat2:w
+box xc yc zc-x2:w/2 xlat2:l 0 x2:w
  attribute comp $zp2
 # zneg
-box xc-zlat2:w/2 yc zc zlat2:w 0 -zlat2:l
+box xc-z2:w/2 yc zc z2:w 0 -zlat2:l
  attribute comp $zp2
 # zpos
-box xc-zlat2:w/2 yc zc zlat2:w 0 zlat2:l
+box xc-z2:w/2 yc zc z2:w 0 zlat2:l
  attribute comp $zp2
 # union
 patbeg foo 4
@@ -268,24 +273,54 @@ patend
 
 # four vertical bars
 # up from xneg
-box xc-xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+box xc-xlat2:l yc zc-x2:w/2 0 x2:h x2:w
  attribute comp $zp2v
 union
 # up from xpos
-box xc+xlat2:l yc zc-xlat2:w/2 0 x2:h x2:w
+box xc+xlat2:l yc zc-x2:w/2 0 x2:h x2:w
  attribute comp $zp2v
 union
 # up from zneg
-box xc-zlat2:w/2 yc zc-zlat2:l z2:w z2:h 0
+box xc-z2:w/2 yc zc-zlat2:l z2:w z2:h 0
  attribute comp $zp2v
 union
 # up from zpos
-box xc-zlat2:w/2 yc zc+zlat2:l z2:w z2:h 0
+box xc-z2:w/2 yc zc+zlat2:l z2:w z2:h 0
  attribute comp $zp2v
 union
 
+# now make cuts at end of vertical bars each side from level 1
+# ------------------------------------------------------------
+# this allows shape derivatives when these variables are perturbed
+
+# xn
+box -xlat:l-z2:w/2  base:h -x:w/2 2 x:h+z2:w 0
+subtract
+box -xlat:l-z2:w/2  base:h x:w/2 2 x:h+z2:w 0
+#--- throw 999
+subtract
+
+# xp
+box xlat:l-z2:w/2  base:h -x:w/2 2 x:h+z2:w 0
+subtract
+box xlat:l-z2:w/2  base:h x:w/2 2 x:h+z2:w 0
+subtract
+
+# zn
+box -z:w/2  base:h -zlat:l-x2:w/2 0 z:h+2 x2:w
+subtract
+box z:w/2  base:h -zlat:l-x2:w/2 0 z:h+2 x2:w
+subtract
+
+# zp
+box -z:w/2  base:h zlat:l-x2:w/2 0 z:h+2 x2:w
+subtract
+box z:w/2  base:h zlat:l-x2:w/2 0 z:h+2 x2:w
+subtract
 
 
+# attributes 
+# ---------------------
 udprim editAttr filename <<
 patbeg level 2
    FACE HAS comp=!$xn+level
@@ -305,6 +340,90 @@ patbeg level 2
    FACE HAS comp=!$zp+level+$v
    SET capsGroup=!$zp+level+$vT
 patend
+
+#--- # mesh settings
+#--- EDGE ADJ2FACE comp=xp1v
+#--- AND ADJ2FACE comp=xp2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=xn1v
+#--- AND ADJ2FACE comp=xn2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=zp1v
+#--- AND ADJ2FACE comp=zp2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=zn1v
+#--- AND ADJ2FACE comp=zn2
+#--- SET capsMesh=v1-l2
+
+EDGE ADJ2FACE comp=zn1
+AND ADJ2FACE comp=zn1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=zp1
+AND ADJ2FACE comp=zp1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=xn1
+AND ADJ2FACE comp=xn1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=xp1
+AND ADJ2FACE comp=xp1v
+SET capsMesh=l1-v1
+
+# xp
+FACE ADJ2FACE comp=xp1v
+AND ADJ2FACE comp=xp2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=xp2v
+SET capsMesh=v2
+
+# xn
+FACE ADJ2FACE comp=xn1v
+AND ADJ2FACE comp=xn2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=xn2v
+SET capsMesh=v2
+
+# zn
+FACE ADJ2FACE comp=zn1v
+AND ADJ2FACE comp=zn2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=zn2v
+SET capsMesh=v2
+
+# zp
+FACE ADJ2FACE comp=zp1v
+AND ADJ2FACE comp=zp2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=zp2v
+SET capsMesh=v2
+
+# fix edges near top of base
+FACE ADJ2FACE comp=base
+SET capsMesh=Fb-l1
+
+EDGE ADJ2FACE capsMesh=Fb-l1
+SET capsMesh=l1-int
 
 >>
 
@@ -335,4 +454,4 @@ attribute capsLoad $loading
 # also thickness variables for each separate face in the structure
 
 end
-|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||

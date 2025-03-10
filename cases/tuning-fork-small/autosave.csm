@@ -1,0 +1,185 @@
+# autosave.csm written by ocsmSave (v1.25)
+
+# Constant, Design, and Output Parameters:
+DESPMTR   base:w       1.20000
+DESPMTR   base:h       3.20000
+DESPMTR   xlat:l       2.00000
+DESPMTR   zlat:l       1.50000
+DESPMTR   x:h       4.00000
+DESPMTR   x:w       0.50000
+DESPMTR   z:h       4.00000
+DESPMTR   z:w       0.50000
+
+# Global Attributes:
+
+# Branches:
+SET       base:mid base:w/2
+BOX       0   0   -base:mid   0   base:h   base:w
+SELECT    face
+ATTRIBUTE comp   $base
+ATTRIBUTE capsGroup   $baseT
+SELECT    edge   1
+ATTRIBUTE capsMesh   $base-bot
+SELECT    edge   2
+SELECT    add   4
+ATTRIBUTE capsMesh   $base-side
+SELECT    edge   1
+ATTRIBUTE capsConstraint   $root
+SELECT    node   1
+SELECT    add   2
+ATTRIBUTE capsConstraint   $root
+STORE     base   0   0
+RESTORE   base   0
+BOX       -z:w/2   base:h   0   z:w   0   -zlat:l
+ATTRIBUTE comp   $zn1
+BOX       -z:w/2   0   -base:mid   z:w   base:h*1.1   0
+SUBTRACT  none   1   0   0
+UNION     0   0   0
+RESTORE   base   0
+BOX       -z:w/2   base:h   0   z:w   0   zlat:l
+ATTRIBUTE comp   $zp1
+BOX       -z:w/2   0   base:mid   z:w   base:h*1.1   0
+SUBTRACT  none   1   0   0
+UNION     0   0   0
+UNION     0   0   0
+BOX       0   base:h   -x:w/2   -xlat:l   0   x:w
+ATTRIBUTE comp   $xn1
+UNION     0   0   0
+BOX       0   base:h   -x:w/2   xlat:l   0   x:w
+ATTRIBUTE comp   $xp1
+UNION     0   0   0
+BOX       -xlat:l   base:h   -x:w/2   0   x:h   x:w
+ATTRIBUTE comp   $xn1v
+UNION     0   0   0
+BOX       xlat:l   base:h   -x:w/2   0   x:h   x:w
+ATTRIBUTE comp   $xp1v
+UNION     0   0   0
+BOX       -z:w/2   base:h   -zlat:l   z:w   z:h   0
+ATTRIBUTE comp   $zn1v
+BOX       0   base:h   -zlat:l-1   0   z:h   2
+SUBTRACT  none   1   0   0
+UNION     0   0   0
+BOX       -z:w/2   base:h   zlat:l   z:w   z:h   0
+ATTRIBUTE comp   $zp1v
+BOX       0   base:h   zlat:l-1   0   z:h   2
+SUBTRACT  none   1   0   0
+UNION     0   0   0
+BOX       0   -1   -zlat:l-1   0   base:h+x:h+2   (2*zlat:l+2)
+SUBTRACT  none   1   0   0
+BOX       -xlat:l-1   -1   0   (2*xlat:l+2)   base:h+x:h+2   0
+SUBTRACT  none   1   0   0
+BOX       -xlat:l-1   -1   -base:mid/2   (2*xlat:l+2)   base:h+1   0
+SUBTRACT  none   1   0   0
+BOX       -xlat:l-1   -1   base:mid/2   (2*xlat:l+2)   base:h+1   0
+SUBTRACT  none   1   0   0
+UDPRIM    editAttr   filename   <<
+patbeg level 1
+   FACE HAS comp=!$xn+level
+   SET capsGroup=!$xn+level+$T
+   FACE HAS comp=!$xn+level+$v
+   SET capsGroup=!$xn+level+$vT
+   FACE HAS comp=!$xp+level
+   SET capsGroup=!$xp+level+$T
+   FACE HAS comp=!$xp+level+$v
+   SET capsGroup=!$xp+level+$vT
+   FACE HAS comp=!$zn+level
+   SET capsGroup=!$zn+level+$T
+   FACE HAS comp=!$zn+level+$v
+   SET capsGroup=!$zn+level+$vT
+   FACE HAS comp=!$zp+level
+   SET capsGroup=!$zp+level+$T
+   FACE HAS comp=!$zp+level+$v
+   SET capsGroup=!$zp+level+$vT
+patend
+
+#--- # mesh settings
+#--- EDGE ADJ2FACE comp=xp1v
+#--- AND ADJ2FACE comp=xp2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=xn1v
+#--- AND ADJ2FACE comp=xn2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=zp1v
+#--- AND ADJ2FACE comp=zp2
+#--- SET capsMesh=v1-l2
+#--- 
+#--- EDGE ADJ2FACE comp=zn1v
+#--- AND ADJ2FACE comp=zn2
+#--- SET capsMesh=v1-l2
+
+EDGE ADJ2FACE comp=zn1
+AND ADJ2FACE comp=zn1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=zp1
+AND ADJ2FACE comp=zp1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=xn1
+AND ADJ2FACE comp=xn1v
+SET capsMesh=l1-v1
+
+EDGE ADJ2FACE comp=xp1
+AND ADJ2FACE comp=xp1v
+SET capsMesh=l1-v1
+
+# xp
+FACE ADJ2FACE comp=xp1v
+AND ADJ2FACE comp=xp2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=xp2v
+SET capsMesh=v2
+
+# xn
+FACE ADJ2FACE comp=xn1v
+AND ADJ2FACE comp=xn2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=xn2v
+SET capsMesh=v2
+
+# zn
+FACE ADJ2FACE comp=zn1v
+AND ADJ2FACE comp=zn2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=zn2v
+SET capsMesh=v2
+
+# zp
+FACE ADJ2FACE comp=zp1v
+AND ADJ2FACE comp=zp2
+SET capsMesh=Fv1-l2
+
+EDGE ADJ2FACE capsMesh=Fv1-l2
+SET capsMesh=l2-int
+
+EDGE ADJ2FACE comp=zp2v
+SET capsMesh=v2
+
+# fix edges near top of base
+FACE ADJ2FACE comp=base
+SET capsMesh=Fb-l1
+
+EDGE ADJ2FACE capsMesh=Fb-l1
+SET capsMesh=l1-int
+
+>>
+SELECT    body
+ATTRIBUTE capsAIM   $egadsTessAIM;tacsAIM
+SELECT    face
+ATTRIBUTE capsLoad   $loading
+
+END

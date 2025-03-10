@@ -1,0 +1,18 @@
+
+despmtr base:h 1.0
+
+box 0 0 0 0 base:h 0
+select edge
+attribute capsGroup $beam
+select node 1
+attribute capsConstraint $root
+
+select node 2
+attribute capsLoad $tip
+
+select body
+attribute capsAIM $egadsTessAIM;tacsAIM
+
+end
+|
+|||
