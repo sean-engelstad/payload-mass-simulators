@@ -61,7 +61,7 @@ def get_basis_fcn(ibasis, xi, xscale):
     xi_poly = hermite_cubic_polynomials_1d(ibasis)
     return eval_polynomial(xi_poly, xi)
 
-def get_kelem_transverse(xscale, E=1, I=1):
+def get_kelem_transverse(xscale=1, E=1, I=1):
     """get element stiffness matrix (without EI scaling)"""
     nquad = 4
     nbasis = 4
@@ -73,7 +73,7 @@ def get_kelem_transverse(xscale, E=1, I=1):
                 Kelem[i,j] += weight * xscale * get_hess(i, xi, xscale) * get_hess(j, xi, xscale)
     return E * I * Kelem
 
-def get_melem_transverse(xscale, rho=1, A=1):
+def get_melem_transverse(xscale=1, rho=1, A=1):
     """get element mass matrix (without rho*A scaling)"""
     nquad = 4 # needed 4th order quadrature to get accurate eigenvalues with beams
     nbasis = 4

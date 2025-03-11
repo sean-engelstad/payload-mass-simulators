@@ -61,7 +61,6 @@ for ielem in range(npc):
     elem_comp += [icomp]
 # npc+1 to 2*npc
 
-
 # xn rod
 icomp = 2
 for ielem in range(npc):
