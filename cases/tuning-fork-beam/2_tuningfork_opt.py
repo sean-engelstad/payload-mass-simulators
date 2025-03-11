@@ -97,7 +97,11 @@ if __name__ == "__main__":
         # RMS frequency errors?
         freqs4 = freqs[:4]
         freq_err = np.linalg.norm(freqs4 - target_eigvals) / np.linalg.norm(target_eigvals)
-        beam3d.freq_err_list += [freq_err]
+        beam3d.freq_err_hist += [freq_err]
+
+        beam3d.freq_hist += [list(freqs4)]
+        # print(f"{beam3d.freq_hist=}")
+        # exit()
 
         return funcs, False
 
@@ -124,6 +128,8 @@ if __name__ == "__main__":
         scale=np.array([1.0,1e2,1e2]*ncomp),
     )
 
+    # note - may be better to change it to a frequency error objective later
+    # we'll see..
 
     opt_problem.addObj("mass-err", scale=1e0)
     for imode in range(nmodes):
@@ -142,7 +148,7 @@ if __name__ == "__main__":
             "Major feasibility tolerance": 1e-6,
             "Major optimality tolerance": 1e-4,
             "Verify level": -1,
-            "Major iterations limit": 1000, # 1000,
+            "Major iterations limit": 1000, #1000, # 1000,
             "Minor iterations limit": 150000000,
             "Iterations limit": 100000000,
             "Major step limit": 5e-2,
@@ -180,17 +186,38 @@ if __name__ == "__main__":
 
     # plot frequency error list
     # ---------------------------------
-    freq_err_list = beam3d.freq_err_list
-    iterations = [_ for _ in range(len(freq_err_list))]
+    freq_err_hist = beam3d.freq_err_hist
+    iterations = [_ for _ in range(len(freq_err_hist))]
 
     import matplotlib.pyplot as plt
     import niceplots
     plt.close('all')
     plt.style.use(niceplots.get_style())
     plt.figure()
-    plt.plot(iterations, freq_err_list, 'k')
+    plt.plot(iterations, freq_err_hist, 'k')
     plt.margins(x=0.05, y=0.05)
     plt.xlabel("Iterations")
     plt.ylabel("Freq Error")
     plt.yscale('log')
     plt.savefig("_modal/freq-err-hist.png", dpi=400)
+
+    freq_hist = beam3d.freq_hist
+    plt.close('all')
+    plt.style.use(niceplots.get_style())
+    plt.figure(figsize=(10,6))
+    # colors = plt.cm.Cu(np.linspace(0.0, 1.0, 4))
+    # colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+    colors = plt.cm.plasma(np.linspace(0.0, 1.0, 4))
+
+    for i in [3,2,1,0]:
+        _this_freq_hist = [_[i] for _ in freq_hist]
+        target_i = [target_eigvals[i] for _ in range(len(iterations))]
+        plt.plot(iterations, target_i, '--', color=colors[i])
+        plt.plot(iterations, _this_freq_hist, color=colors[i], label=f"freq{i}")
+        
+    plt.margins(x=0.05, y=0.05)
+    plt.xlabel("Iterations")
+    plt.ylabel("Frequencies")
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1)) 
+    plt.yscale('log')
+    plt.savefig("_modal/freq-hist.png", dpi=400)

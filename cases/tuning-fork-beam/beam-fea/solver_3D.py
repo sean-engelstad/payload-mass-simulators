@@ -40,7 +40,8 @@ class Beam3DTree:
         self.freqs = None
         self.eigvecs = None
 
-        self.freq_err_list = []
+        self.freq_err_hist = []
+        self.freq_hist = []
 
     def _build_sparse_matrices(self, x):
         # TODO : use design variables to compute K, M as sparse BCSR matrices
