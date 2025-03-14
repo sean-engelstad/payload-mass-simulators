@@ -379,7 +379,7 @@ class Beam3DTree:
             xv = [xpt1[0], xpt2[0]]
             yv = [xpt1[1], xpt2[1]]
             zv = [xpt1[2], xpt2[2]]
-            plt.plot(xv, yv, zv, color=color, linewidth=2)
+            plt.plot(xv, yv, zv, 'o', color=color, linewidth=2)
         return
     
     def freq_FD_test(self, x, imode, h=1e-3):
