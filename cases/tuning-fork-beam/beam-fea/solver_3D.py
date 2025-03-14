@@ -152,6 +152,28 @@ class Beam3DTree:
         den = self._get_modal_mass(imode) * 2 * freq
         return num / den
 
+    def get_mass(self, x):
+        # get mass of entire structure
+        rho = self.material.rho
+        V = 0
+        Varray = np.array([x[3*icomp+2]*x[3*icomp+1]*x[3*icomp] for icomp in range(self.ncomp)])
+        # for icomp in range(self.ncomp):
+        #     V+= (x[3*icomp+2]*x[3*icomp+1]*x[3*icomp]) # t2*t1*l
+        return rho*np.sum(Varray)
+
+    def get_mass_gradient(self, x):
+        # compute mass gradient
+        # TODO: look at individual derivatives
+        dmdx_grad = np.array([0.0]*3*self.ncomp)
+        for icomp in range(self.ncomp):
+            dmdx_grad[3*icomp] = self.material.rho*x[3*icomp+1]*x[3*icomp+2] # dm/dl
+            dmdx_grad[3*icomp+1] = self.material.rho*x[3*icomp]*x[3*icomp+2] # dm/dt1
+            dmdx_grad[3*icomp+2] = self.material.rho*x[3*icomp]*x[3*icomp+1] # dm/dt2
+        return dmdx_grad
+    
+        # figure out inline later?
+        # dmdx_grad = np.array([self.material.rho*x[3*icomp+1]*x[3*icomp+2], self.material.rho*x[3*icomp]*x[3*icomp+2], self.material.rho*x[3*icomp]*x[3*icomp+1] for icomp in range(self.ncomp)])
+
     def _get_dKdx_term(self, x, imode):
         # get phi^T * dK/dx * phi term for single eigenmode, gradient of all DVs
         dKdx_grad = np.array([0.0]*3*self.ncomp)
@@ -390,6 +412,16 @@ class Beam3DTree:
         FD_val = (freqs2[imode] - freqs[imode]) / h
         HC_val = np.dot(freq_grad, p_vec)
         print(f"freq[{imode}] FD test: {FD_val=} {HC_val=}")
+        return
+    
+    def mass_FD_test(self, x, h=1e-3):
+        p_vec = np.random.rand(self.num_dvs)
+        mass_0 = self.get_mass(x)
+        mass_grad = self.get_mass_gradient(x)
+        mass_1 = self.get_mass(x + p_vec * h)
+        FD_val = (mass_1 - mass_0) / h
+        HC_val = np.dot(mass_grad, p_vec)
+        print(f"mass FD test: {FD_val=} {HC_val=}")
         return
     
     def dKdx_FD_test(self, x, imode, h=1e-5):
