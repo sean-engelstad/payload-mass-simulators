@@ -39,6 +39,7 @@ class Beam3DTree:
         self.keep_dof = None # for bc removal
         self.freqs = None
         self.eigvecs = None
+        self.Fr = None
 
         self.freq_err_hist = []
         self.freq_hist = []
@@ -129,6 +130,70 @@ class Beam3DTree:
         self.Kr = K[self.keep_dof,:][:,self.keep_dof]
         self.Mr = M[self.keep_dof,:][:,self.keep_dof]
 
+    def _build_inertial_loads(self, x):
+        # x is a vector of DVs [l1, t1, t2]*nnodes for each node repeating
+
+        # get new xpts
+        lengths = x[0::3]
+        self.xpts = self.tree.get_xpts(lengths)
+
+        F = np.zeros((self.ndof,))
+
+        for ielem in range(self.nelems):
+
+            # determine element orientation
+            nodes = self.elem_conn[ielem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            dxpt = xpt2 - xpt1
+            orient_ind = np.argmax(np.abs(dxpt))
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+
+            # get local design variables
+            icomp = self.elem_comp[ielem]
+            length = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # get cross section dimensions from thickness DVs
+            L_elem = length / self.nelem_per_comp
+            A = t1 * t2
+            rho = self.material.rho
+            g = 9.81 # m/s^2, accel due to gravity
+            V = A * L_elem
+
+            # figure out which element nodes correspond to axial, torsion, transverse depending
+            # on the beam orientation
+            axial_nodal_dof = [orient_ind]
+            torsion_nodal_dof = [3+orient_ind]
+            ind1 = rem_orient_ind[0]; ind2 = rem_orient_ind[1]
+            tr1_nodal_dof = [ind1, 3+ind2]; tr2_nodal_dof = [ind2, 3+ind1]
+
+            # get global dof for each physics and this element
+            axial_dof = [6*inode + _dof for _dof in axial_nodal_dof for inode in nodes]
+            torsion_dof = [6*inode + _dof for _dof in torsion_nodal_dof for inode in nodes]
+            tr1_dof = np.sort([6*inode + _dof for _dof in tr1_nodal_dof for inode in nodes])
+            tr2_dof = np.sort([6*inode + _dof for _dof in tr2_nodal_dof for inode in nodes])
+
+            felem = None
+            if orient_ind == 0 or orient_ind == 1:
+                # transverse distributed loads
+                felem = rho * V * g * get_felem_transverse()
+                if orient_ind == 0:
+                    F[tr1_dof] += felem[:]
+                else:
+                    F[tr2_dof] += felem[:]
+
+            elif orient_ind == 2: 
+                # axial vertical load
+                felem = rho * V * g * get_felem_axial()
+                F[axial_dof] += felem[:]
+
+        # apply reduced bcs to the matrix
+        bcs = [_ for _ in range(6)] # just the first node of root fixed all DOF
+        self.keep_dof = [_ for _ in range(self.ndof) if not(_ in bcs)]
+        self.Fr = F[self.keep_dof]
+
     def get_frequencies(self, x, nmodes=5):
 
         # update xpts and assemble Kr, Mr matrices
@@ -151,7 +216,20 @@ class Beam3DTree:
         num = self._get_dKdx_term(x, imode) - freq**2 * self._get_dMdx_term(x, imode)
         den = self._get_modal_mass(imode) * 2 * freq
         return num / den
+    
+    def _solve_static(self, x):
+        # computes Kr * ur = Fr in reduced system
+        self._build_dense_matrices(x)
+        self._build_inertial_loads(x)
 
+        self.ur = np.linalg.solve(self.Kr, self.Fr)
+        self.u = np.zeros((self.ndof,))
+        self.u[self.keep_dof] = self.ur[:]
+        print(F"{self.u=}")
+
+        # now plot the disps of linear static?
+        return self.u
+    
     def get_mass(self, x):
         # get mass of entire structure
         rho = self.material.rho
@@ -453,6 +531,20 @@ class Beam3DTree:
         HC_val = np.dot(p_vec, dMrdx_grad)
         print(f"dM/dx FD test: {FD_val=} {HC_val=}")
         return
+    
+    def plot_static(self, show=False, def_scale=0.3, file_prefix=""):
+        fig = plt.figure(figsize=(8,6))
+        ax = fig.add_subplot(111, projection='3d')
+        self._plot_xpts(self.xpts, 'k')
+        uvw = np.zeros((3 * self.nnodes,))
+        for i in range(3):
+            uvw[i::3] = self.u[i::6]
+
+        self._plot_xpts(self.xpts + def_scale*uvw, 'b')
+        if show:
+            plt.show()
+        else:
+            plt.savefig(f"_modal/{file_prefix}_static.png")
 
     def plot_eigenmodes(self, nmodes=5, show=False, def_scale=0.3, file_prefix=""):
         for imode in range(nmodes):

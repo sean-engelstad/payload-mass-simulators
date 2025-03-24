@@ -40,8 +40,16 @@ if __name__ == "__main__":
     print(f"{freqs=}")
     beam3d.plot_eigenmodes(
         nmodes=10,
-        show=True,
+        show=False,
         def_scale=1.0
     )
+
+    # now also test linear static
+    beam3d._solve_static(opt_design)
+    beam3d.plot_static(
+        show=False,
+        def_scale=1e1,
+    )
+    
 
     

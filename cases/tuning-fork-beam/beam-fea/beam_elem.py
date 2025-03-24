@@ -104,9 +104,13 @@ def get_melem_torsion(rho=1, A=1, J=1, L=1):
     # consistent formulation which is more accurate for dynamic analysis / modal analysis
     return rho * A * J * L / 3.0 * np.array([[2,1],[1,2]])
 
-def get_felem(xscale):
+def get_felem_axial(q0=1, L=1):
     """get element load vector"""
-    nquad = 3
+    return q0 * L * np.array([0.5]*2)
+
+def get_felem_transverse(xscale=1.0):
+    """get element load vector"""
+    nquad = 4
     nbasis = 4
     felem = np.zeros((nbasis,))
     for iquad in range(nquad):

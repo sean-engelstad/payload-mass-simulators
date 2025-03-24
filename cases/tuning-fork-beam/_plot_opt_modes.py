@@ -29,7 +29,7 @@ print(f"{freqs_init=}")
 nmodes = 5
 beam3d.plot_eigenmodes(
     nmodes=nmodes,
-    show=False,
+    show=True,
     def_scale=0.5,
     file_prefix="init"
 )
@@ -40,7 +40,7 @@ print(f"{freqs_opt=}")
 nmodes = 5
 beam3d.plot_eigenmodes(
     nmodes=nmodes,
-    show=False,
+    show=True,
     def_scale=0.5,
     file_prefix="opt"
 )

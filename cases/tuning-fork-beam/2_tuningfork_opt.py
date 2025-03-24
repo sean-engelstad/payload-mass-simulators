@@ -64,6 +64,7 @@ if __name__ == "__main__":
     nmodes = 4 # we're targeting the first 4 eigenvalues for now
 
     target_eigvals = np.array([24.3, 29.4, 99.5, 173.6])
+    target_mass = 176.407 # kg
 
     def get_functions(x_dict):
         xlist = x_dict["vars"]
@@ -74,7 +75,8 @@ if __name__ == "__main__":
         funcs = {
             f'freq{imode}':freqs[imode] for imode in range(nmodes)
         }
-        funcs['mass-err'] = 0.0 # add actual value later
+        mass = beam3d.get_mass(xarr)
+        funcs['mass'] = (mass - target_mass)**2
 
         # writeout a current opt-status.txt file
         hdl = open("opt-status.txt", mode='w')
@@ -83,6 +85,8 @@ if __name__ == "__main__":
         for i,key in enumerate(funcs_keys):
             if "freq" in key:
                 hdl.write(f"\tfunc {key} = {funcs[key]:.4e}, target {target_eigvals[i]}\n")
+            elif 'mass' in key:
+                hdl.write(f"\tfunc {key} = {mass:.4e}, target {target_mass}\n")
             else:
                 hdl.write(f"\tfunc {key} = {funcs[key]:.4e}\n")
         hdl.write("vars:\n")
@@ -114,7 +118,8 @@ if __name__ == "__main__":
             freq_grad = beam3d.get_frequency_gradient(xarr, imode)
             sens[f'freq{imode}'] = {'vars': freq_grad}
 
-        sens['mass-err'] = {'vars': 0.0 * freq_grad} # add actual later
+        mass_gradient = beam3d.get_mass_gradient(xarr)
+        sens['mass'] = {'vars': 2 * (beam3d.get_mass(xarr) - target_mass) * mass_gradient} # add actual later
         
         return sens, False
     
@@ -131,7 +136,7 @@ if __name__ == "__main__":
     # note - may be better to change it to a frequency error objective later
     # we'll see..
 
-    opt_problem.addObj("mass-err", scale=1e0)
+    opt_problem.addObj("mass", scale=target_mass**2)
     for imode in range(nmodes):
         opt_problem.addCon(
             f"freq{imode}",
