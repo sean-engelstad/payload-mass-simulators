@@ -1,0 +1,94 @@
+# ESP/CSM script for a parametric building-like structure
+
+# Define configurable parameters
+cfgpmtr num_floors 5  # Number of floors (configurable)
+
+# Define the design parameters
+despmtr column:width 0.1  # Column thickness (m, used as shell thickness)
+despmtr column:height 5.0  # Column total height (m)
+despmtr floor:length 4.0  # Floor size (m)
+despmtr floor:width 2.0  # Floor width (m)
+despmtr base:length 1  # Base length (m)
+despmtr base:width 1  # Base width (m)
+
+
+# create columns along with the associated base plate (thin sheets, dz = 0)
+# Column and Base Plate 1:
+box 0 0 0 column:width 0 column:height  # Column at (0,0)
+select face
+attribute capsGroup $column1
+
+box 0 0 0 column:width column:width 0  # Bottom plate at (0,0)
+select face 
+attribute capsGroup $base1
+
+attribute capsConstraint $base
+union
+
+# Column and Base Plate 2:
+box floor:length-column:width 0 0 column:width 0 column:height  # Column at (aligned to floor length, 0)
+select face
+attribute capsGroup $column2
+
+box floor:length-column:width 0 0 column:width column:width 0 # Bottom plate at (floor length, 0)
+select face 
+attribute capsGroup $base2
+
+attribute capsConstraint $base
+union
+
+# Column and Base Plate 3:
+box 0 floor:width 0 column:width 0 column:height # Column at (0, aligned to floor width)
+select face 
+attribute capsGroup $column3
+
+box 0 floor:width-column:width 0 column:width column:width 0  # Bottom plate at (0, floor width)
+select face 
+attribute capsGroup $base3
+
+attribute capsConstraint $base
+union 
+
+# Column and Base Plate 4:
+box floor:length-column:width floor:width 0 column:width 0 column:height # Column at (aligned to floor length, aligned to floor width)
+select face 
+attribute capsgroup $column4
+
+box floor:length-column:width floor:width-column:width 0 column:width column:width 0  # Bottom plate at (floor length, floor width)
+select face 
+attribute capsGroup $base4
+
+attribute capsConstraint $base
+union
+
+
+# Create evenly spaced floor plates starting above the bottom (skipping the lowest level)
+patbeg ifloor num_floors  # Loop through num_floors times
+   set z ((ifloor/num_floors)*column:height)  # Compute even spacing
+   box 0 0 z floor:length floor:width 0  # Create floor at computed height
+   select face 
+   attribute capsGroup !$floor+ifloor
+   
+   ifthen ifloor eq 1
+      patbeg fu 4
+         union
+      patend
+      else 
+       union
+   endif
+patend
+
+
+
+
+
+# Apply attributes for FEA integration
+select face
+attribute capsGroup $all
+select body
+attribute capsAIM $egadsTessAIM;tacsAIM
+
+
+end
+
+|||||||||||||||||||||||||||||||||||||||||||||||
