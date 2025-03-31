@@ -33,19 +33,19 @@ CORD2S         2       0      0.      0.      0.      0.      0.      1.+FEMAPC2
 $ Femap Constraint Set 1 : Case 1
 SPC1           1  123456       1
 $ Femap Property 1 : Base
-PBAR           1       1      .1 8.33e-5 8.33e-3 8.41e-3      0.        +       
+PBAR           1       1     .01 8.33e-6 8.33e-6 1.66e-5      0.        +       
 +             0.      0.      0.      0.      0.      0.      0.      0.+       
 +                             0.
 $ Femap Property 2 : LateralX
-PBAR           2       1      .1 8.33e-5 8.33e-3 8.41e-3      0.        +       
+PBAR           2       1     .01 8.33e-6 8.33e-6 1.66e-5      0.        +       
 +             0.      0.      0.      0.      0.      0.      0.      0.+       
 +                             0.
 $ Femap Property 3 : LateralY
-PBAR           3       1      .1 8.33e-5 8.33e-3 8.41e-3      0.        +       
+PBAR           3       1     .01 8.33e-6 8.33e-6 1.66e-5      0.        +       
 +             0.      0.      0.      0.      0.      0.      0.      0.+       
 +                             0.
 $ Femap Property 4 : Vert
-PBAR           4       1      .1 8.33e-5 8.33e-3 8.41e-3      0.        +       
+PBAR           4       1     .01 8.33e-6 8.33e-6 1.66e-5      0.        +       
 +             0.      0.      0.      0.      0.      0.      0.      0.+       
 +                             0.
 $ Femap Material 1 : Aluminum

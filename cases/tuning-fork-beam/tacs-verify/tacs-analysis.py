@@ -36,18 +36,23 @@ nu = 0.3  # Poisson's ratio
 ys = 270.0e6  # yield stress
 
 # Shell thickness
-A = 0.1  # m
-Iz = 0.2  # m
-Iy = 0.3  # m
-J = 0.4
+# A = 0.1  # m
+# Iz = 0.2  # m
+# Iy = 0.3  # m
+# J = 0.4
+b = h = 5e-3
+A = b * h
+Iy = Iz = b * h**3 / 12.0
+J = 2 * Iz
 
+kTransverse = 1e3 # orig 1000, but want to make it high so becomes Euler-Bernoulli
 
 # Callback function used to setup TACS element objects and DVs
 def elemCallBack(dvNum, compID, compDescript, elemDescripts, globalDVs, **kwargs):
     # Setup (isotropic) property and constitutive objects
     prop = constitutive.MaterialProperties(rho=rho, E=E, nu=nu, ys=ys)
     con = constitutive.BasicBeamConstitutive(
-        prop, A=A, Iy=Iy, Iz=Iz, J=J, ky=1000, kz=1000
+        prop, A=A, Iy=Iy, Iz=Iz, J=J, ky=kTransverse, kz=kTransverse
     )
     # exit()
 
@@ -84,6 +89,6 @@ MP = FEAAssembler.createModalProblem("modal", sigma=10.0, numEigs=10)
 MP.setOption("printLevel", 2)
 MP.solve()
 
-if not os.path.exists("_buckling"):
-    os.mkdir("_buckling")
-MP.writeSolution(outputDir="_buckling")
+if not os.path.exists("_modal"):
+    os.mkdir("_modal")
+MP.writeSolution(outputDir="_modal")
