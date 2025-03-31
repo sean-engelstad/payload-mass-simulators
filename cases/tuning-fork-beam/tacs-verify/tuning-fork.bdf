@@ -1,0 +1,164 @@
+INIT MASTER(S)
+NASTRAN SYSTEM(442)=-1,SYSTEM(319)=1
+ID FEMAP,FEMAP
+SOL SESTATIC
+CEND
+  TITLE = Beam Test
+  ECHO = NONE
+  DISPLACEMENT(PLOT) = ALL
+  SPCFORCE(PLOT) = ALL
+  OLOAD(PLOT) = ALL
+  FORCE(PLOT,CORNER) = ALL
+  STRESS(PLOT,CORNER) = ALL
+BEGIN BULK
+$ ***************************************************************************
+$   Written by : Femap
+$   Version    : 2025.3.31
+$   Translator : Simcenter Nastran
+$   From Model : 
+$   Date       : Wed Apr 20 10:23:42 2022
+$   Output To  : n/a
+$ ***************************************************************************
+$
+PARAM,PRGPST,YES
+PARAM,POST,-1
+PARAM,OGEOM,NO
+PARAM,AUTOSPC,YES
+PARAM,K6ROT,100.
+PARAM,GRDPNT,0
+CORD2C         1       0      0.      0.      0.      0.      0.      1.+FEMAPC1
++FEMAPC1      1.      0.      1.        
+CORD2S         2       0      0.      0.      0.      0.      0.      1.+FEMAPC2
++FEMAPC2      1.      0.      1.        
+$ Femap Constraint Set 1 : Case 1
+SPC1           1  123456       1
+$ Femap Property 1 : Base
+PBAR           1       1      .1 8.33e-5 8.33e-3 8.41e-3      0.        +       
++             0.      0.      0.      0.      0.      0.      0.      0.+       
++                             0.
+$ Femap Property 2 : LateralX
+PBAR           2       1      .1 8.33e-5 8.33e-3 8.41e-3      0.        +       
++             0.      0.      0.      0.      0.      0.      0.      0.+       
++                             0.
+$ Femap Property 3 : LateralY
+PBAR           3       1      .1 8.33e-5 8.33e-3 8.41e-3      0.        +       
++             0.      0.      0.      0.      0.      0.      0.      0.+       
++                             0.
+$ Femap Property 4 : Vert
+PBAR           4       1      .1 8.33e-5 8.33e-3 8.41e-3      0.        +       
++             0.      0.      0.      0.      0.      0.      0.      0.+       
++                             0.
+$ Femap Material 1 : Aluminum
+MAT1           1   7.+10              .3   2700.      0.      0.        +       
++          2.7+8             
+GRID,1, ,0.0,0.0,0.0   
+$ Segment 1 (Z-axis extension)
+GRID,2, ,0.0,0.0,0.2
+GRID,3, ,0.0,0.0,0.4
+GRID,4, ,0.0,0.0,0.6
+GRID,5, ,0.0,0.0,0.8
+GRID,6, ,0.0,0.0,1.0
+$ Segment 2 (X-direction from top of Segment 1)
+GRID,7, ,0.2,0.0,1.0
+GRID,8, ,0.4,0.0,1.0
+GRID,9, ,0.6,0.0,1.0
+GRID,10, ,0.8,0.0,1.0
+GRID,11, ,1.0,0.0,1.0
+$ Segment 3 (-X direction)
+GRID,12, ,-0.2,0.0,1.0
+GRID,13, ,-0.4,0.0,1.0
+GRID,14, ,-0.6,0.0,1.0
+GRID,15, ,-0.8,0.0,1.0
+GRID,16, ,-1.0,0.0,1.0
+$ Segment 4 (Y direction)
+GRID,17, ,0.0,0.2,1.0
+GRID,18, ,0.0,0.4,1.0
+GRID,19, ,0.0,0.6,1.0
+GRID,20, ,0.0,0.8,1.0
+GRID,21, ,0.0,1.0,1.0
+$ Segment 5 (-Y direction)
+GRID,22, ,0.0,-0.2,1.0
+GRID,23, ,0.0,-0.4,1.0
+GRID,24, ,0.0,-0.6,1.0
+GRID,25, ,0.0,-0.8,1.0
+GRID,26, ,0.0,-1.0,1.0
+$ Segment 6 (+X upward extension)
+GRID,27, ,1.0,0.0,1.2
+GRID,28, ,1.0,0.0,1.4
+GRID,29, ,1.0,0.0,1.6
+GRID,30, ,1.0,0.0,1.8
+GRID,31, ,1.0,0.0,2.0
+$ Segment 7 (-X upward extension)
+GRID,32, ,-1.0,0.0,1.2
+GRID,33, ,-1.0,0.0,1.4
+GRID,34, ,-1.0,0.0,1.6
+GRID,35, ,-1.0,0.0,1.8
+GRID,36, ,-1.0,0.0,2.0
+$ Segment 8 (+Y upward extension)
+GRID,37, ,0.0,1.0,1.2
+GRID,38, ,0.0,1.0,1.4
+GRID,39, ,0.0,1.0,1.6
+GRID,40, ,0.0,1.0,1.8
+GRID,41, ,0.0,1.0,2.0
+$ Segment 9 (-Y upward extension)
+GRID,42, ,0.0,-1.0,1.2
+GRID,43, ,0.0,-1.0,1.4
+GRID,44, ,0.0,-1.0,1.6
+GRID,45, ,0.0,-1.0,1.8
+GRID,46, ,0.0,-1.0,2.0
+
+$ Femap Property Base
+CBAR,1,1,1,2,0,0,1
+CBAR,2,1,2,3,0,0,1
+CBAR,3,1,3,4,0,0,1
+CBAR,4,1,4,5,0,0,1
+CBAR,5,1,5,6,0,0,1
+$ Femap Property LatXp
+CBAR,6,2,6,7,1,0,0
+CBAR,7,2,7,8,1,0,0
+CBAR,8,2,8,9,1,0,0
+CBAR,9,2,9,10,1,0,0
+CBAR,10,2,10,11,1,0,0
+$ Femap Property LatXn
+CBAR,11,2,6,12,1,0,0
+CBAR,12,2,12,13,1,0,0
+CBAR,13,2,13,14,1,0,0
+CBAR,14,2,14,15,1,0,0
+CBAR,15,2,15,16,1,0,0
+$ Femap Property LatYp
+CBAR,16,3,6,17,0,1,0
+CBAR,17,3,17,18,0,1,0
+CBAR,18,3,18,19,0,1,0
+CBAR,19,3,19,20,0,1,0
+CBAR,20,3,20,21,0,1,0
+$ Femap Property LatYn
+CBAR,21,3,6,22,0,1,0
+CBAR,22,3,22,23,0,1,0
+CBAR,23,3,23,24,0,1,0
+CBAR,24,3,24,25,0,1,0
+CBAR,25,3,25,26,0,1,0
+$ Femap Property VertXp
+CBAR,26,4,11,27,0,0,1
+CBAR,27,4,27,28,0,0,1
+CBAR,28,4,28,29,0,0,1
+CBAR,29,4,29,30,0,0,1
+CBAR,30,4,30,31,0,0,1
+$ Femap Property VertXn
+CBAR,31,4,16,32,0,0,1
+CBAR,32,4,32,33,0,0,1
+CBAR,33,4,33,34,0,0,1
+CBAR,34,4,34,35,0,0,1
+CBAR,35,4,35,36,0,0,1
+$ Femap Property VertYp
+CBAR,36,4,21,37,0,0,1
+CBAR,37,4,37,38,0,0,1
+CBAR,38,4,38,39,0,0,1
+CBAR,39,4,39,40,0,0,1
+CBAR,40,4,40,41,0,0,1
+$ Femap Property VertYn
+CBAR,41,4,26,42,0,0,1
+CBAR,42,4,42,43,0,0,1
+CBAR,43,4,43,44,0,0,1
+CBAR,44,4,44,45,0,0,1
+CBAR,45,4,45,46,0,0,1
+ENDDATA e0194509
