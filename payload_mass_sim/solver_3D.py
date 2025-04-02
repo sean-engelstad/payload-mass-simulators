@@ -4,9 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import niceplots
-from tree_data import TreeData
-from material import Material
-from beam_elem import *
+from .tree_data import TreeData
+from .material import Material
+from ._beam_elem import *
 from scipy.linalg import eigh
 
 

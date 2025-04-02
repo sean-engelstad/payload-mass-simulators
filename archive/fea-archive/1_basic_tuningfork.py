@@ -3,7 +3,7 @@ import sys, numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 sys.path.append("beam-fea")
-from beam_elem import *
+from _beam_elem import *
 from scipy.linalg import eigh
 import os
 
