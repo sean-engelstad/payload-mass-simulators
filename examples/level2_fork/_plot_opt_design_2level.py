@@ -4,8 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import sys, numpy as np, os, time
-sys.path.append("beam-fea")
-from solver_3D import *
+from payload_mass_sim import *
 
 def draw_box(ax, center, size, color='cyan', alpha=0.3):
     """

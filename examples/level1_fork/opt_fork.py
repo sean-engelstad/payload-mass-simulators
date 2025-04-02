@@ -1,6 +1,5 @@
 import sys, numpy as np, os, time
-sys.path.append("beam-fea")
-from solver_3D import *
+from payload_mass_sim import *
 from pyoptsparse import SNOPT, Optimization
 
 if not os.path.exists("_modal"):
