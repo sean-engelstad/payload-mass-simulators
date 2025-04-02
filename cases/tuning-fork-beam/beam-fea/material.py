@@ -7,6 +7,6 @@ class Material:
     
     @classmethod
     def aluminum(cls):
-        E = 70e9; nu = 0.3; rho = 2.5e3
+        E = 70e9; nu = 0.3; rho = 2.7e3
         G = E / 2.0 / (1+nu)
         return cls(E, rho, nu, G)
