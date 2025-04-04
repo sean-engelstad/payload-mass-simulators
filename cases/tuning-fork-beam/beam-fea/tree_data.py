@@ -60,14 +60,16 @@ class TreeData:
         return elem_conn, elem_comp
 
     def get_xpts(self, lengths, origin=None):
-        origin = [0.0]*3 if origin is None else origin
+        origin = np.array([0.0]*3 if origin is None else origin)
+        #origin = [0.0]*3 if origin is None else origin
 
         # these are the main points in the tree
         self.tree_xpts = [origin]
         npc = self.nelem_per_comp
-        
+        # print(f"{self.tree_xpts}")
         # this is the mesh we return to the user
-        xpts = origin # first point at origin
+        #xpts = [0.0]*3 if origin is None else origin # first point at origin
+        xpts = list(origin.copy())
 
         for icomp in range(self.ncomp):
             start_tree_node = self.tree_start_nodes[icomp]
@@ -81,13 +83,114 @@ class TreeData:
             dxpt[direc] = sign * lengths[icomp]
             end_xpt = start_xpt + dxpt
             self.tree_xpts += [end_xpt]
-
+            # print(f"{self.tree_xpts}")
             # loop over all mesh nodes between the two main tree nodes here
             for ielem in range(npc):
                 frac = (ielem+1) * 1.0 / npc
                 xpts += list(start_xpt + dxpt * frac)
         return np.array(xpts)
     
+    def get_centroid(self, x, origin=None):
+        #rho = self.material.rho
+        rho = 1
+        lengths = np.array([x[3*icomp] for icomp in range(self.ncomp)])
+        Varray = np.array([x[3*icomp+2]*x[3*icomp+1]*x[3*icomp] for icomp in range(self.ncomp)])
+
+        lengths_0 = lengths.copy()
+        self.get_xpts(lengths_0)
+        nodal_xpts_0 = self.tree_xpts.copy()
+        #print(f"nodal xpts 0: {nodal_xpts_0}")
+
+        sum_Mi = 0
+        sum_MiCij = np.zeros(shape = (3,))
+        for icomp in range(self.ncomp):
+            sum_Mi += rho*Varray[icomp]
+
+            start_tree_node = self.tree_start_nodes[icomp]
+            start_xpt_0 = np.array(nodal_xpts_0[start_tree_node])
+            # print(f"{nodal_xpts_0=}")
+            # print(f"{start_xpt_0.shape=}")
+            direction = self.tree_directions[icomp]%3
+            Cij = start_xpt_0
+            #print(f"Cij: {Cij}")
+            # print(f"{Cij.shape=}")
+            Cij[direction] += lengths[icomp]/2
+            #print(f"Cij: {Cij}")
+            sum_MiCij += (rho*Varray[icomp]*Cij)
+        Xj = (sum_MiCij)/sum_Mi
+        return Xj
+
+    def get_centroid_gradient(self, x, origin=None):
+        h = 1e-5
+        #rho = self.material.rho
+        rho = 1
+        lengths = np.array([x[3*icomp] for icomp in range(self.ncomp)])
+        Varray = np.array([x[3*icomp+2]*x[3*icomp+1]*x[3*icomp] for icomp in range(self.ncomp)])
+
+        lengths_0 = lengths.copy()
+        self.get_xpts(lengths_0)
+        nodal_xpts_0 = self.tree_xpts.copy()
+        
+        dXj_gradient = np.zeros((3, 3*self.ncomp)) 
+        for kcomp in range(self.ncomp):
+            #Initialize summations
+            sum_Mi = 0
+            sum_dv = np.zeros(shape = (3,))
+            sum_v = np.zeros(shape = (3,))
+            sum_du = 0
+            for icomp in range(self.ncomp):
+                start_tree_node = self.tree_start_nodes[icomp]
+                start_xpt_0 = np.array(nodal_xpts_0[start_tree_node])
+                if icomp == kcomp:
+                    dMi_dlk = rho*x[3*icomp+1]*x[3*icomp+2]
+                    dCij_dlk = np.zeros(shape = (3,))
+                    dCij_dlk[self.tree_directions[icomp]%3] = 1/2 
+                    print(f"{icomp=}, {kcomp=}, {dCij_dlk=}")
+                else:
+                    dMi_dlk = 0
+                    p_vec = np.zeros((self.ncomp,))
+                    p_vec[icomp] = 1
+                    self.get_xpts(lengths_0+p_vec*h)
+                    nodal_xpts_p = self.tree_xpts.copy()
+                    start_xpt_p = np.array(nodal_xpts_p[start_tree_node])
+                    dCij_dlk = (start_xpt_p-start_xpt_0)/h
+                Mi = rho*Varray[icomp]
+                direction = self.tree_directions[icomp]%3
+                Cij = start_xpt_0
+                Cij[direction] += lengths[icomp]/2 
+                sum_Mi += Mi
+                sum_dv += dMi_dlk*Cij+dCij_dlk*Mi
+                sum_v += Mi*Cij
+                sum_du += dMi_dlk
+            numerator_1 = sum_Mi*sum_dv
+            numerator_2 = sum_v*sum_du
+            print(f"{numerator_1=}, {numerator_2=}")
+            dXj_gradient[:, 3*kcomp] = (sum_Mi*sum_dv-sum_v*sum_du)/sum_Mi**2 #/dl
+            dXj_gradient[:, 3*kcomp+1] = 0                                    #/t1
+            dXj_gradient[:, 3*kcomp+2] = 0                                    #/t2
+        print(f"{dXj_gradient=}")
+
+            # Derivative of length and local centroid in same componen
+            # dcdx_grad[:, 3*icomp] = (1/2*x[3*icomp+1]*x[3*icomp+2]*Varray[icomp] - centroid_0*Varray[icomp]*x[3*icomp+1]*x[3*icomp+2])/(Varray[icomp])**2 # dC/dl
+            # dcdx_grad[:, 3*icomp+1] = (centroid_0*x[3*icomp]*x[3*icomp+2]*Varray[icomp] - centroid_0*Varray[icomp]*x[3*icomp]*x[3*icomp+2])/(Varray[icomp])**2 # dC/dt1
+            # dcdx_grad[:, 3*icomp+2] = (centroid_0*x[3*icomp]*x[3*icomp+2]*Varray[icomp] - centroid_0*Varray[icomp]*x[3*icomp]*x[3*icomp+2])/(Varray[icomp])**2 # dC/dt2
+            # FD_val = (centroid_p - centroid_0) / h
+            # HC_val = np.dot(p_vec, centroid_0)
+            # print(f"Centroid gradient FD test: {FD_val=} {HC_val=}")
+        return dXj_gradient
+
+    def centroid_FD_test(self, x, h=1e-3):
+        #p_vec = np.random.rand(x.shape[0])
+        p_vec = np.array([1] + [0]*(x.shape[0]-1))
+        centroid_0 = self.get_centroid(x)
+        centroid_grad = self.get_centroid_gradient(x)
+        centroid_1 = self.get_centroid(x + p_vec * h)
+        FD_val = (centroid_1 - centroid_0) / h
+        HC_val = np.dot(centroid_grad, p_vec)
+        print(f"Centroid FD test: {FD_val=} {HC_val=}")
+        return
+
+
     def plot_mesh(self, xpts, filename="mesh.png"):
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(111, projection='3d')

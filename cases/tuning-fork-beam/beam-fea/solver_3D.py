@@ -54,6 +54,8 @@ class Beam3DTree:
         # get new xpts
         lengths = x[0::3]
         self.xpts = self.tree.get_xpts(lengths)
+        #print("xpts:\n", self.xpts)
+        #print(f"xpts shape: {self.xpts.shape}, expected at least {3*self.nnodes}")
 
         K = np.zeros((self.ndof, self.ndof))
         M = np.zeros((self.ndof, self.ndof))
@@ -64,6 +66,9 @@ class Beam3DTree:
             nodes = self.elem_conn[ielem]
             node1 = nodes[0]; node2 = nodes[1]
             xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            # print(f"xpts: {self.xpts}")
+            # print(f"xpt1: {xpt1}")
+            # print(f"xpt2: {xpt2}")
             dxpt = xpt2 - xpt1
             orient_ind = np.argmax(np.abs(dxpt))
             rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
@@ -501,7 +506,7 @@ class Beam3DTree:
         HC_val = np.dot(mass_grad, p_vec)
         print(f"mass FD test: {FD_val=} {HC_val=}")
         return
-    
+
     def dKdx_FD_test(self, x, imode, h=1e-5):
         p_vec = np.random.rand(self.num_dvs)
         self.get_frequencies(x)
