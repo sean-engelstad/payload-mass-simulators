@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import niceplots
 from matplotlib import colors
 sys.path.append("beam-fea")
-from beam_elem import *
+from _beam_elem import *
 from scipy.linalg import eigh
 
 # axial torsion, and transverse beam oriented in x direction

@@ -2,3 +2,5 @@
 *.txt
 *.jrnl
 __pycache__
+SNOPT*
+*.hst

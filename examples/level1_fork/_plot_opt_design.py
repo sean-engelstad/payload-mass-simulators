@@ -4,8 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import sys, numpy as np, os, time
-sys.path.append("beam-fea")
-from solver_3D import *
+from payload_mass_sim import *
 
 def draw_box(ax, center, size, color='cyan', alpha=0.3):
     """
@@ -42,35 +41,30 @@ def draw_box(ax, center, size, color='cyan', alpha=0.3):
     return corners  # Return corners for axis scaling
 
 # init design
-ncomp = 25
+ncomp = 9
 init_design = init_design = np.array([0.3, 5e-3, 5e-3]*ncomp)
 
-# optimal design
-opt_design = [0.51356357, 0.58936876, 0.59449344, 0.54337107, 0.66756475,
-       0.66879658, 0.54139735, 0.2504392 , 0.24274076, 0.06250699,
-       0.79819811, 0.7973222 , 0.28402404, 0.98954866, 0.97708781,
-       0.89280352, 0.5475172 , 0.56755643, 0.09663544, 0.52104368,
-       0.52605036, 0.18319159, 0.64093505, 0.61873378, 0.17402498,
-       0.92646682, 0.95629892, 0.21413584, 0.29807207, 0.29891428,
-       0.19414718, 0.18142242, 0.18275822, 1.22820854, 0.21288764,
-       0.33856259, 0.68982044, 0.93453992, 0.07559592, 0.01568144,
-       0.20018254, 0.17895316, 0.23159184, 0.21644126, 0.21785645,
-       0.34368306, 0.28154457, 0.50129818, 0.98122663, 0.54265563,
-       0.64383522, 0.10464439, 0.08448421, 0.03222893, 0.33601293,
-       0.03444808, 0.04266918, 0.24334277, 0.19528914, 0.0118297 ,
-       0.05462177, 0.26193797, 0.14976567, 0.01092886, 0.04308376,
-       0.05148861, 0.23054725, 0.04713601, 0.01445863, 0.12365468,
-       0.229301  , 0.04899589, 0.19800888, 0.01182331, 0.18818442]
+# optimal design - V1 (first 4 freq match)
+# opt_design = [0.08125551, 0.02211063, 0.07895405, 0.14713621, 0.01711272,
+#        0.05670854, 0.14552369, 0.00420714, 0.02302042, 0.17597928,
+#        0.04472327, 0.0450355 , 0.11794632, 0.05531567, 0.00601055,
+#        0.08715245, 0.00400008, 0.00345651, 0.14678793, 0.0039524 ,
+#        0.00351281, 0.12807156, 0.00403881, 0.00427038, 0.16456358,
+#        0.00351356, 0.00346978]
+
+# optimal design - V2 (first 4 freq match + mass match
+opt_design = np.array([0.51557176, 0.22839125, 0.20479483, 0.39822018, 0.08301871,
+       0.02212506, 0.64312029, 0.11802109, 0.16108851, 0.7288425 ,
+       0.19153433, 0.13970275, 0.8891137 , 0.13101526, 0.11585078,
+       0.2908164 , 0.03151235, 0.01452752, 0.28787797, 0.03079086,
+       0.01134946, 0.29856402, 0.01182893, 0.02284578, 0.20969153,
+       0.00601115, 0.14087715])
 
 tree = TreeData(
-    tree_start_nodes=[0] + [1]*4 + [2,3,4,5] + [6,7,8,9]*2 + [10,11,12,13,14,15,16,17],
-    tree_directions=[5] + [0,1,2,3] + [5]*4 + [3,3,1,1] + [2,2,0,0] + [5]*8,
-    nelem_per_comp=10 
+    tree_start_nodes=[0] + [1]*4 + [2,3,4,5],
+    tree_directions=[5] + [0,1,2,3] + [5]*4,
+    nelem_per_comp=1 # 1 since we only want to plot the beams (no FEM mesh here, just visualization)
 )
-
-init_lengths = [1.0]*9 + [0.5] * 16
-xpts = tree.get_xpts(init_lengths)
-tree.plot_mesh(xpts)
 
 def plot_design(fig, ax, x_design, origin, show=True):
 
@@ -149,11 +143,11 @@ def plot_design(fig, ax, x_design, origin, show=True):
 fig = plt.figure(figsize=(8,8))
 ax = fig.add_subplot(111, projection='3d')
 plot_design(fig, ax, init_design, origin=[0.0]*3, show=False)
-plt.savefig("_modal_2level/init-design.png")
+plt.savefig("_modal/init-design.png")
 plt.close('all')
 
 # Create figure
 fig = plt.figure(figsize=(8, 8))
 ax = fig.add_subplot(111, projection='3d')
 plot_design(fig, ax, opt_design, origin=[0.0]*3, show=False)
-plt.savefig("_modal_2level/opt-design.png")
+plt.savefig("_modal/opt-design.png")

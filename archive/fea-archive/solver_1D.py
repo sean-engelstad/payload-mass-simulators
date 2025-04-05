@@ -1,6 +1,6 @@
 import numpy as np
 import scipy as sp
-from beam_elem import *
+from _beam_elem import *
 
 # simple 1D beam solver
 class Transverse1DBeam:
