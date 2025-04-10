@@ -93,16 +93,20 @@ def get_kelem_axial(E=1, A=1, L=1):
 def get_melem_axial(rho=1, A=1, L=1):
     """get axial element mass matrix"""
     # consistent formulation which is more accurate for dynamic analysis / modal analysis
-    return rho * A * L / 6 * np.array([[2,1],[1,2]])
+    # return rho * A * L / 6 * np.array([[2,1],[1,2]])
+    return rho * A * L / 2 * np.array([[1.0, 0.0],[0.0, 1.0]])
 
 def get_kelem_torsion(G=1, J=1, L=1):
     """get torsion element stiffness matrix (without GJ/L scaling, here EA=1)"""
     return G * J / L * np.array([[1,-1], [-1,1]])
 
-def get_melem_torsion(rho=1, A=1, J=1, L=1):
+def get_melem_torsion(rho=1, Ip=1, L=1):
     """get axial element mass matrix (without rho*A*L/6 scaling)"""
     # consistent formulation which is more accurate for dynamic analysis / modal analysis
-    return rho * A * J * L / 3.0 * np.array([[2,1],[1,2]])
+    # consistent mass matrix
+    # return rho * A * J * L / 3.0 * np.array([[2,1],[1,2]])
+    # lumped mass matrix
+    return rho * Ip * L / 2 * np.array([[1.0, 0.0],[0.0, 1.0]])
 
 def get_felem_axial(q0=1, L=1):
     """get element load vector"""

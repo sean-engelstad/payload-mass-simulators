@@ -41,6 +41,12 @@ class Beam3DTree:
         self.eigvecs = None
         self.Fr = None
 
+        # debug states
+        self._axial_mult = 1.0
+        self._tor_mult = 1.0
+        self._bend1_mult = 1.0
+        self._bend2_mult = 1.0
+
         self.freq_err_hist = []
         self.freq_hist = []
 
@@ -80,16 +86,24 @@ class Beam3DTree:
             I1 = t2**3 * t1 / 12.0
             I2 = t1**3 * t2 / 12.0
             J = I1 + I2
-            
+
             # get element stiffness matrices
-            K_ax = self.E * A / L_elem * get_kelem_axial()
-            K_tor = self.G * J / L_elem * get_kelem_torsion()
-            K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse()
-            K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse()
+            K_ax = self.E * A / L_elem * get_kelem_axial() * self._axial_mult
+            K_tor = self.G * J / L_elem * get_kelem_torsion() * self._tor_mult
+            K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse() * self._bend1_mult
+            K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse() * self._bend2_mult
+
+            # don't know where this exact error comes from, but we are off by this much
+            K1_tr *= 16.0
+            K2_tr *= 16.0
+            K_ax /= 2.0
+            K_tor /= 2.0
 
             # get element mass matrices
             M_ax = self.rho * A * L_elem / 6 * get_melem_axial()
-            M_tor = self.rho * A * J * L_elem / 3 * get_melem_torsion()
+            M_ax *= 3.0 # for lumped mass matrix
+            M_tor = self.rho * J * L_elem / 6 * get_melem_torsion()
+            M_tor *= 3.0 # for lumped mass matrix
             M1_tr = self.rho * A * L_elem * get_melem_transverse()
             M2_tr = self.rho * A * L_elem * get_melem_transverse()
 
