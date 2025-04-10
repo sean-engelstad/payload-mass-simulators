@@ -35,6 +35,8 @@ E = 70.0e9  # Young's modulus (Pa)
 nu = 0.3  # Poisson's ratio
 ys = 270.0e6  # yield stress
 
+sigma = 1e-2 # eigenvalue guess
+
 # Shell thickness
 # A = 0.1  # m
 # Iz = 0.2  # m
@@ -50,7 +52,7 @@ J = 2 * Iz
 
 # kTransverse = 1e3 # orig 1000, but want to make it high so becomes Euler-Bernoulli
 # kTransverse *= 1e2
-kTransverse = 1e5
+kTransverse = 5.0 / 3.0
 
 # Callback function used to setup TACS element objects and DVs
 def elemCallBack(dvNum, compID, compDescript, elemDescripts, globalDVs, **kwargs):
@@ -86,8 +88,12 @@ FEAAssembler.initialize(elemCallBack)
 # Static problem
 evalFuncs = ["mass", "ks_vmfailure"]
 
+<<<<<<< HEAD:tests/cantilever_bending/tacs-analysis.py
 num_eig = 10
 MP = FEAAssembler.createModalProblem("modal", sigma=10.0, numEigs=num_eig)
+=======
+MP = FEAAssembler.createModalProblem("modal", sigma=sigma, numEigs=10)
+>>>>>>> 638d45c38999343b7d02c2a023b2d29bdc370522:tests/cantilever/tacs-analysis.py
 MP.setOption("printLevel", 2)
 MP.solve()
 
