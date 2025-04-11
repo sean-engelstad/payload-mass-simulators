@@ -49,13 +49,14 @@ if __name__ == "__main__":
         dt = time.time() - start_time
         print(f"\tcomputed freq grads in {dt:.4f} seconds.") 
 
-    debug = False
+    debug = True
     if debug:
         # FD test on the gradients
         for imode in range(4):
             beam3d.freq_FD_test(init_design, imode, h=1e-3)
             beam3d.dKdx_FD_test(init_design, imode, h=1e-5)
             beam3d.dMdx_FD_test(init_design, imode, h=1e-5)
+        exit()
 
     # optimization
     # -------------------------------------
@@ -80,8 +81,8 @@ if __name__ == "__main__":
 
         centroid = tree.get_centroid(xarr)
         centroidError = (centroid - target_centroid)**2
-        for i in range(3):
-            funcs[f'centroid{i}'] = centroidError[i]
+        # for i in range(3):
+            # funcs[f'centroid{i}'] = centroidError[i]
 
         # writeout a current opt-status.txt file
         hdl = open("opt-status.txt", mode='w')
@@ -133,8 +134,8 @@ if __name__ == "__main__":
         sens['mass'] = {'vars': 2 * (beam3d.get_mass(xarr) - target_mass) * mass_gradient} # add actual later
         
         centroid_gradient = tree.get_centroid_gradient(xarr)
-        for i in range(3):
-            sens[f'centroid{i}'] = {'vars': 2 * (tree.get_centroid(xarr) - target_centroid)[i] * centroid_gradient[i,:]}
+        # for i in range(3):
+            # sens[f'centroid{i}'] = {'vars': 2 * (tree.get_centroid(xarr) - target_centroid)[i] * centroid_gradient[i,:]}
 
         return sens, False
     
@@ -160,13 +161,13 @@ if __name__ == "__main__":
             scale=1e-2
         )
 
-    for i in range(3):  # Constraints for x, y, and z centroid coordinates
-        opt_problem.addCon(
-            f"centroid{i}",
-            lower=target_centroid[i],
-            upper=target_centroid[i],
-            scale=1e-2
-        )
+    # for i in range(3):  # Constraints for x, y, and z centroid coordinates
+    #     opt_problem.addCon(
+    #         f"centroid{i}",
+    #         lower=target_centroid[i],
+    #         upper=target_centroid[i],
+    #         scale=1e-2
+    #     )
 
     # run an SNOPT optimization
     snoptimizer = SNOPT(

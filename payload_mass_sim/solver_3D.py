@@ -346,6 +346,11 @@ class Beam3DTree:
             K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse()
             K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse()
 
+            K1_tr *= 16.0
+            K2_tr *= 16.0
+            K_ax /= 2.0
+            K_tor /= 2.0
+
             # first the length derivatives
             dL_elem = 1.0 / self.nelem_per_comp
             local_grad[0] = dL_elem * get_phys_grads(
@@ -449,7 +454,9 @@ class Beam3DTree:
 
             # for reference, get element mass matrices
             M_ax = self.rho * A * L_elem / 6 * get_melem_axial()
+            M_ax *= 3.0
             M_tor = self.rho * A * J * L_elem / 3 * get_melem_torsion()
+            M_tor *= 3.0
             M1_tr = self.rho * A * L_elem * get_melem_transverse()
             M2_tr = self.rho * A * L_elem * get_melem_transverse()
 
