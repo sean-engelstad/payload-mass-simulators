@@ -455,7 +455,7 @@ class Beam3DTree:
             # for reference, get element mass matrices
             M_ax = self.rho * A * L_elem / 6 * get_melem_axial()
             M_ax *= 3.0
-            M_tor = self.rho * A * J * L_elem / 3 * get_melem_torsion()
+            M_tor = self.rho * J * L_elem / 6 * get_melem_torsion()
             M_tor *= 3.0
             M1_tr = self.rho * A * L_elem * get_melem_transverse()
             M2_tr = self.rho * A * L_elem * get_melem_transverse()
