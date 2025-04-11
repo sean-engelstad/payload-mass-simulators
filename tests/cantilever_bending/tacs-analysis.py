@@ -25,7 +25,7 @@ comm = MPI.COMM_WORLD
 # Instantiate FEAAssembler
 structOptions = {}
 
-bdfFile = os.path.join(os.path.dirname(__file__), "tuning-fork.bdf")
+bdfFile = os.path.join(os.path.dirname(__file__), "cantilever.bdf")
 # Load BDF file
 FEAAssembler = pyTACS(bdfFile, comm, options=structOptions)
 
@@ -35,20 +35,24 @@ E = 70.0e9  # Young's modulus (Pa)
 nu = 0.3  # Poisson's ratio
 ys = 270.0e6  # yield stress
 
+sigma = 1e-2 # eigenvalue guess
+
 # Shell thickness
 # A = 0.1  # m
 # Iz = 0.2  # m
 # Iy = 0.3  # m
 # J = 0.4
-b = h = 5e-3
+# b = h = 5e-3
+b = h = 1e-2
 A = b * h
 Iy = Iz = b * h**3 / 12.0
 J = 2 * Iz
 
-# this strongly affects eigenvalues if above 1e3, why does it increase eigenvalues though?
-# when smaller it reduces the eigenvalue until thin-walled limit (thought should be other way around)
-# kTransverse = 1.0e4
-kTransverse = 1.0
+# J *= 1e3
+
+# kTransverse = 1e3 # orig 1000, but want to make it high so becomes Euler-Bernoulli
+# kTransverse *= 1e2
+kTransverse = 5.0 / 3.0
 
 # Callback function used to setup TACS element objects and DVs
 def elemCallBack(dvNum, compID, compDescript, elemDescripts, globalDVs, **kwargs):
@@ -62,11 +66,7 @@ def elemCallBack(dvNum, compID, compDescript, elemDescripts, globalDVs, **kwargs
     print(F"{compID=} {compDescript=}", flush=True)
 
     # refAxis is perp to beam and is Iy direc
-    if "Base" in compDescript or "Vert" in compDescript:
-        # print("in here")
-        refAxis = np.array([0.0, 1.0, 0.0])
-    elif "Lateral" in compDescript:
-        refAxis = np.array([0.0, 0.0, 1.0])
+    refAxis = np.array([1.0, 0.0, 0.0])
 
     print(F"{compDescript=} {refAxis=}", flush=True)
 
@@ -88,8 +88,12 @@ FEAAssembler.initialize(elemCallBack)
 # Static problem
 evalFuncs = ["mass", "ks_vmfailure"]
 
+<<<<<<< HEAD:tests/cantilever_bending/tacs-analysis.py
 num_eig = 10
 MP = FEAAssembler.createModalProblem("modal", sigma=10.0, numEigs=num_eig)
+=======
+MP = FEAAssembler.createModalProblem("modal", sigma=sigma, numEigs=10)
+>>>>>>> 638d45c38999343b7d02c2a023b2d29bdc370522:tests/cantilever/tacs-analysis.py
 MP.setOption("printLevel", 2)
 MP.solve()
 
