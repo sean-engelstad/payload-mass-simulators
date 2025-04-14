@@ -27,9 +27,10 @@ print(f'{torsion=}')
 # Timoshenko beam
 k_vec = np.array([1.875, 4.694, 7.855]) # mode shape constants
 mode_nums = np.arange(1, len(k_vec)+1)   # n = 1, 2, 3,...
+print(f"{mode_nums=}")
 correction_denominator = 1 + (mode_nums**2) * np.pi**2 * t1**2 * material.E / (material.k_s * material.G * L**2)
-omega_bending_timoshenko = omega_bending / correction_denominator
+omega_bending_timoshenko = omega_bending / np.sqrt(correction_denominator)
 print(f"{omega_bending_timoshenko=}")
 
-bending_timoshenko_freq = np.sqrt(omega_bending_timoshenko)
-print(f"{bending_timoshenko_freq=}")
+# bending_timoshenko_freq = np.sqrt(omega_bending_timoshenko)
+# print(f"{bending_timoshenko_freq=}")

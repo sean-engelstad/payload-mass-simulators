@@ -96,6 +96,9 @@ class Beam3DTree:
             # K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse() * self._bend1_mult
             # K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse() * self._bend2_mult
 
+            K_ax /= 2.0
+            K_tor /= 2.0
+
             # get element mass matrices
             M_ax = self.rho * A * L_elem / 6 * get_melem_axial()
             M_ax *= 3.0 # for lumped mass matrix
@@ -112,6 +115,7 @@ class Beam3DTree:
                 # Mass matrices for timoshenko theory
                 M1_tr = get_melem_transverse_timoshenko(xscale=L_elem, rho=self.rho, A=A, I=I1)
                 M2_tr = get_melem_transverse_timoshenko(xscale=L_elem, rho=self.rho, A=A, I=I2)
+
             else:
                 # Stiffness matrices for euler-bernoulli beam theory
                 K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse() * self._bend1_mult
@@ -120,11 +124,9 @@ class Beam3DTree:
                 M1_tr = self.rho * A * L_elem * get_melem_transverse()
                 M2_tr = self.rho * A * L_elem * get_melem_transverse()
 
-            # don't know where this exact error comes from, but we are off by this much
-            K1_tr *= 16.0
-            K2_tr *= 16.0
-            K_ax /= 2.0
-            K_tor /= 2.0
+                # don't know where this exact error comes from, but we are off by this much
+                K1_tr *= 16.0
+                K2_tr *= 16.0
 
             # figure out which element nodes correspond to axial, torsion, transverse depending
             # on the beam orientation

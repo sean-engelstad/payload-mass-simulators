@@ -156,6 +156,10 @@ def get_kelem_transverse_timoshenko(xscale=1, E=1, I=1, ks=5/6, G=1, A=1):
         ])
         # computhing stiffness matrix from D and B arrays
         Kelem_tim += weight * ((B.T @ D @ B) * J)
+    
+    # import matplotlib.pyplot as plt
+    # plt.imshow(Kelem_tim)
+    # plt.show()
     return Kelem_tim
 
 # Computing the element mass matrix:
@@ -168,10 +172,14 @@ def get_melem_transverse_timoshenko(xscale=1, rho=1, A=1, I=1):
     for iquad in range(nquad):
         xi , weight = get_quadrature_rule4(iquad)
         psi1, psi2, dpsi1, dpsi2 = get_basis_func_timoshenko(xi)
-        H1 = np.array([psi1, 0, psi2, 0])
-        H2 = np.array([0, psi1, 0, psi2])
+        H1 = np.array([psi1, 0, psi2, 0]).reshape((4,1))
+        H2 = np.array([0, psi1, 0, psi2]).reshape((4,1))
         # computing the mass matrix from H1 and H2 arrays
-        Melem_tim += weight * (rho * A * (H1.T @ H1) + rho * I * (H2.T @ H2) * J)
+        Melem_tim += weight * (rho * A * (H1 @ H1.T) + rho * I * (H2 @ H2.T)) * J
+
+    # import matplotlib.pyplot as plt
+    # plt.imshow(Melem_tim)
+    # plt.show()
     return Melem_tim
 
 

@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # initial design variables
     ncomp = tree.ncomp
     # t1 = t2 = 5e-3 # m
-    t1 = t2 = 1e-2
+    t1 = t2 = 1e-1
     L = 1.0 # m
     init_design = np.array([L, t1, t2]*ncomp)
     num_dvs = init_design.shape[0]
