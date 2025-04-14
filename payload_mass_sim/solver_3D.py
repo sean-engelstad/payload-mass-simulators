@@ -116,6 +116,9 @@ class Beam3DTree:
                 M1_tr = get_melem_transverse_timoshenko(xscale=L_elem, rho=self.rho, A=A, I=I1)
                 M2_tr = get_melem_transverse_timoshenko(xscale=L_elem, rho=self.rho, A=A, I=I2)
 
+                # K1_tr /= 3.0
+                # K2_tr /= 3.0
+
             else:
                 # Stiffness matrices for euler-bernoulli beam theory
                 K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse() * self._bend1_mult

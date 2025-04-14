@@ -14,7 +14,7 @@ if __name__ == "__main__":
     tree = TreeData(
         tree_start_nodes=[0],
         tree_directions=[0],
-        nelem_per_comp=40
+        nelem_per_comp=100
     )
     # not sensitive to the number of elements
 
@@ -35,8 +35,8 @@ if __name__ == "__main__":
     # debug make other frequencies really high to just use bending 1
     # beam3d._axial_mult = 1e4
     # beam3d._tor_mult = 1e4
-    # beam3d._bend1_mult = 1.0
-    # beam3d._bend2_mult = 1e4
+    beam3d._bend1_mult = 1.0
+    beam3d._bend2_mult = 1e4
 
     # debug to make all but bending low eigenvalues
     # beam3d._A = 1e4
