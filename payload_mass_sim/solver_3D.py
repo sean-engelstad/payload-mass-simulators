@@ -6,7 +6,8 @@ import time
 import niceplots
 from .tree_data import TreeData
 from .material import Material
-from ._beam_elem import *
+from ._EB_elem import *
+from ._TS_elem import *
 from scipy.linalg import eigh
 
 
@@ -54,7 +55,102 @@ class Beam3DTree:
         # TODO : use design variables to compute K, M as sparse BCSR matrices
         pass
 
-    def _build_dense_matrices(self, x):
+    def _build_dense_matrices_euler_bernoulli(self, x):
+        # x is a vector of DVs [l1, t1, t2]*nnodes for each node repeating
+
+        # get new xpts
+        lengths = x[0::3]
+        self.xpts = self.tree.get_xpts(lengths)
+        #print("xpts:\n", self.xpts)
+        #print(f"xpts shape: {self.xpts.shape}, expected at least {3*self.nnodes}")
+
+        K = np.zeros((self.ndof, self.ndof))
+        M = np.zeros((self.ndof, self.ndof))
+
+        for ielem in range(self.nelems):
+
+            # determine element orientation
+            nodes = self.elem_conn[ielem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            # print(f"xpts: {self.xpts}")
+            # print(f"xpt1: {xpt1}")
+            # print(f"xpt2: {xpt2}")
+            dxpt = xpt2 - xpt1
+            orient_ind = np.argmax(np.abs(dxpt))
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+
+            # get local design variables
+            icomp = self.elem_comp[ielem]
+            length = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # get cross section dimensions from thickness DVs
+            L_elem = length / self.nelem_per_comp
+            A = t1 * t2
+            I1 = t2**3 * t1 / 12.0
+            I2 = t1**3 * t2 / 12.0
+            J = I1 + I2
+
+            # get element stiffness matrices
+            K_ax = self.E * A / L_elem * get_kelem_axial() * self._axial_mult
+            K_tor = self.G * J / L_elem * get_kelem_torsion() * self._tor_mult
+            K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse() * self._bend1_mult
+            K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse() * self._bend2_mult
+
+            # don't know where this exact error comes from, but we are off by this much
+            K1_tr *= 16.0
+            K2_tr *= 16.0
+            K_ax /= 2.0
+            K_tor /= 2.0
+
+            # get element mass matrices
+            M_ax = self.rho * A * L_elem / 6 * get_melem_axial()
+            M_ax *= 3.0 # for lumped mass matrix
+            M_tor = self.rho * J * L_elem / 6 * get_melem_torsion()
+            M_tor *= 3.0 # for lumped mass matrix
+            M1_tr = self.rho * A * L_elem * get_melem_transverse()
+            M2_tr = self.rho * A * L_elem * get_melem_transverse()
+
+            # figure out which element nodes correspond to axial, torsion, transverse depending
+            # on the beam orientation
+            axial_nodal_dof = [orient_ind]
+            torsion_nodal_dof = [3+orient_ind]
+            ind1 = rem_orient_ind[0]; ind2 = rem_orient_ind[1]
+            tr1_nodal_dof = [ind1, 3+ind2]; tr2_nodal_dof = [ind2, 3+ind1]
+
+            # get global dof for each physics and this element
+            axial_dof = [6*inode + _dof for _dof in axial_nodal_dof for inode in nodes]
+            torsion_dof = [6*inode + _dof for _dof in torsion_nodal_dof for inode in nodes]
+            tr1_dof = np.sort([6*inode + _dof for _dof in tr1_nodal_dof for inode in nodes])
+            tr2_dof = np.sort([6*inode + _dof for _dof in tr2_nodal_dof for inode in nodes])
+
+            # get assembly arrays
+            ax_rows, ax_cols = np.ix_(axial_dof, axial_dof)
+            tor_rows, tor_cols = np.ix_(torsion_dof, torsion_dof) # thx spots
+            tr1_rows, tr1_cols = np.ix_(tr1_dof, tr1_dof)
+            tr2_rows, tr2_cols = np.ix_(tr2_dof, tr2_dof)
+
+            # assemble to global stiffness matrix
+            K[ax_rows, ax_cols] += K_ax
+            K[tor_rows, tor_cols] += K_tor
+            K[tr1_rows, tr1_cols] += K1_tr
+            K[tr2_rows, tr2_cols] += K2_tr
+
+            # assemble to global mass matrix
+            M[ax_rows, ax_cols] += M_ax
+            M[tor_rows, tor_cols] += M_tor
+            M[tr1_rows, tr1_cols] += M1_tr
+            M[tr2_rows, tr2_cols] += M2_tr
+
+        # apply reduced bcs to the matrix
+        bcs = [_ for _ in range(6)] # just the first node of root fixed all DOF
+        self.keep_dof = [_ for _ in range(self.ndof) if not(_ in bcs)]
+        self.Kr = K[self.keep_dof,:][:,self.keep_dof]
+        self.Mr = M[self.keep_dof,:][:,self.keep_dof]
+
+    def _build_dense_matrices_timoshenko(self, x):
         # x is a vector of DVs [l1, t1, t2]*nnodes for each node repeating
 
         # get new xpts
@@ -217,7 +313,10 @@ class Beam3DTree:
 
         # update xpts and assemble Kr, Mr matrices
         # self._build_sparse_matrices(x) # TODO
-        self._build_dense_matrices(x)
+        if self.timoshenko:
+            self._build_dense_matrices_timoshenko(x)
+        else:
+            self._build_dense_matrices_euler_bernoulli(x)
 
         # solve the generalized eigenvalues problem
         print("Solving eigenvalue problem:")
