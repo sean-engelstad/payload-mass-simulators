@@ -14,7 +14,7 @@ if __name__ == "__main__":
     tree = TreeData(
         tree_start_nodes=[0] + [1]*4 + [2,3,4,5],
         tree_directions=[5] + [0,1,2,3] + [5]*4,
-        nelem_per_comp=10 #40
+        nelem_per_comp=10 #10
     )
 
     # initial design variables

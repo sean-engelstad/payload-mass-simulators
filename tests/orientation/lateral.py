@@ -11,8 +11,8 @@ if __name__ == "__main__":
     #    in order to have level 2 optimization
     tree = TreeData(
         tree_start_nodes=[0],
-        # tree_directions=[0],
-        tree_directions=[5],
+        tree_directions=[0],
+        # tree_directions=[5],
         nelem_per_comp=10
     )
     # init_lengths = [1.0]*tree.ncomp
@@ -45,5 +45,3 @@ if __name__ == "__main__":
         show=False,
         def_scale=0.1
     )
-
-    

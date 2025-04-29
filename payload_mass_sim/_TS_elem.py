@@ -54,15 +54,16 @@ def get_strain_energy(
         t2 = ref_axis - np.dot(t1, ref_axis) * t1
         t2 /= np.linalg.norm(t2)
         t3 = np.cross(t1, t2)
-        T = np.array([list(t1), list(t2), list(t3)])
+        T = np.array([list(t1), list(t2), list(t3)]).T
+        # print(f"{T=} {t1=} {t2=} {t3=}")
 
         # compute additional matrices
-        Xd = np.array([list(X0_xi), list(n1), list(n2)])
+        Xd = np.array([list(X0_xi), list(n1), list(n2)]).T
         Xdinv = np.linalg.inv(Xd)
         detXd = np.linalg.det(Xd)
         XdinvT = Xdinv @ T
         # print(f"{u0_xi=} {d01=} {d02=}")
-        u0d = np.array([list(u0_xi), list(d01), list(d02)])
+        u0d = np.array([list(u0_xi), list(d01), list(d02)]).T
         u0d_2 = u0d @ XdinvT
         u0x = T.T @ u0d_2
         e1 = np.array([1, 0, 0])

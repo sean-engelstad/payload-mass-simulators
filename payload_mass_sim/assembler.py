@@ -69,16 +69,17 @@ class BeamAssembler:
             dxpt = xpt2 - xpt1
             orient_ind = np.argmax(np.abs(dxpt))
             rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
-            # ref_axis = np.zeros((3,))
-            # ref_axis[rem_orient_ind[0]] = 1.0
-            ref_axis = np.array([0.0, 1.0, 0.0]) # see below we rotate from x-dir later
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+            # print(f"{ref_axis=}")
+            # ref_axis = np.array([0.0, 1.0, 0.0]) # see below we rotate from x-dir later
 
             # print(f"{ref_axis=}")
 
             # set element xpts (for one element in straight comp, all same Kelem + Melem then)
-            # elem_xpts = np.concatenate([xpt1, xpt2], axis=0)
+            elem_xpts = np.concatenate([xpt1, xpt2], axis=0)
             # switch to xpts in x-dir then permute x,y,z
-            elem_xpts = np.array([0.0] * 3 + [L/nelem_per_comp, 0.0, 0.0])
+            # elem_xpts = np.array([0.0] * 3 + [L/nelem_per_comp, 0.0, 0.0])
             qvars = np.array([0.0]*12)
 
             # get the Kelem and Melem for this component
@@ -89,16 +90,28 @@ class BeamAssembler:
             Melem = get_mass_matrix(elem_xpts, qvars, ref_axis, CM)
 
             # now only need to rotate Kelem
-            if orient_ind == 2:
-                perm_ind0 = np.array([2, 1, 0])
-            elif orient_ind == 1:
-                perm_ind0 = np.array([1, 2, 0])
-            elif orient_ind == 2:
-                perm_ind0 = np.array([0, 2, 1])
-            perm_ind = np.concatenate([perm_ind0, perm_ind0+3, perm_ind0+6, perm_ind0+9], axis=0)
+            use_perm = False
+            if use_perm:
+                # perm_ind0 rotates u,v,w; perm_ind1 rotates the thx - thz (diff bc right hand rule)
+                if orient_ind == 0:
+                    perm_ind0 = np.array([0, 1, 2])
+                    perm_ind1 = np.array([0, 1, 2])
+                elif orient_ind == 1:
+                    perm_ind0 = np.array([1, 0, 2])
+                    perm_ind1 = np.array([2, 0, 1])
+                elif orient_ind == 2:
+                    perm_ind0 = np.array([2, 1, 0])
+                    perm_ind1 = np.array([1, 2, 0])
+                # later try perm_ind1 is swapped differently with th than disp
+                perm_ind1 = perm_ind0
+                # print(f"{perm_ind0=}")
+                perm_ind = np.concatenate([perm_ind0, perm_ind1+3, perm_ind0+6, perm_ind1+9], axis=0)
 
-            Kelem = Kelem[perm_ind,:][:,perm_ind]
-            Melem = Melem[perm_ind,:][:,perm_ind] # not really necessary to permute this one
+                Kelem = Kelem[perm_ind,:][:,perm_ind]
+                Melem = Melem[perm_ind,:][:,perm_ind] # not really necessary to permute this one
+
+            # print(f"{icomp=} {orient_ind=} {np.diag(Kelem)[:6]=}")
+            # print(f"{icomp=} {orient_ind=} {np.diag(Melem)[:6]=}")
 
             # now do assembly step for each element
             start = nelem_per_comp * icomp
@@ -114,16 +127,6 @@ class BeamAssembler:
         # done with assembly procedure --------------
         # plt.imshow(K)
         # plt.show()
-
-        # print out diagonal of stiffnesses to terminal
-        # Kdiag = np.diag(K)
-        # for i in range(6*10):
-        #     inode = i // 6
-        #     idof = i % 6
-        #     val = K[i,i]
-        #     dof_str = ["u","v","w","thx","thy", "thz"][idof]
-        #     print(f"Kdiag @ {dof_str}{inode} = {val:.4e}")
-        # exit()
 
         # apply bcs for reduced matrix --------------
         bcs = [_ for _ in range(6)]
@@ -275,19 +278,6 @@ class BeamAssembler:
             ref_axis = np.array([0.0, 1.0, 0.0]) # see below we rotate from x-dir later
             elem_xpts0 = np.array([0.0] * 3 + [L/nelem_per_comp, 0.0, 0.0])
 
-            # apply inv perm to phi instead of on Kelem
-            if orient_ind == 2:
-                perm_ind0 = np.array([2, 1, 0])
-            elif orient_ind == 1:
-                perm_ind0 = np.array([1, 2, 0])
-            elif orient_ind == 2:
-                perm_ind0 = np.array([0, 2, 1])
-            perm_ind = np.concatenate([perm_ind0, perm_ind0+3, perm_ind0+6, perm_ind0+9], axis=0)
-            iperm = np.zeros((12,))
-            for i in range(12):
-                j = perm[i]
-                iperm[j] = i
-
             # initial const data
             Cfull = get_constitutive_data(self.material, t1, t2)
             CK = Cfull[:6]; CM = Cfull[6:]
@@ -298,7 +288,6 @@ class BeamAssembler:
                 elem_nodes = self.elem_conn[ielem]
                 glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
                 phie = phi[glob_dof]
-                phie = phie[iperm] # inv permute so don't need to permute Kelem / strain energy for convenience
 
                 detXd = L / nelem_per_comp / 2.0
 
@@ -356,19 +345,6 @@ class BeamAssembler:
             ref_axis = np.array([0.0, 1.0, 0.0]) # see below we rotate from x-dir later
             elem_xpts0 = np.array([0.0] * 3 + [L/nelem_per_comp, 0.0, 0.0])
 
-            # apply inv perm to phi instead of on Kelem
-            if orient_ind == 2:
-                perm_ind0 = np.array([2, 1, 0])
-            elif orient_ind == 1:
-                perm_ind0 = np.array([1, 2, 0])
-            elif orient_ind == 2:
-                perm_ind0 = np.array([0, 2, 1])
-            perm_ind = np.concatenate([perm_ind0, perm_ind0+3, perm_ind0+6, perm_ind0+9], axis=0)
-            iperm = np.zeros((12,))
-            for i in range(12):
-                j = perm[i]
-                iperm[j] = i
-
             # initial const data
             Cfull = get_constitutive_data(self.material, t1, t2)
             CK = Cfull[:6]; CM = Cfull[6:]
@@ -379,7 +355,6 @@ class BeamAssembler:
                 elem_nodes = self.elem_conn[ielem]
                 glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
                 phie = phi[glob_dof]
-                phie = phie[iperm] # inv permute so don't need to permute Kelem / strain energy for convenience
 
                 # compute dK/dL term ------------
                 h = 1e-30 # complex-step method on first order

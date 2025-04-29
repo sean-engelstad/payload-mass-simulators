@@ -45,5 +45,3 @@ if __name__ == "__main__":
         show=False,
         def_scale=0.1
     )
-
-    
