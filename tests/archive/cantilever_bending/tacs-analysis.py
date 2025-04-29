@@ -88,8 +88,12 @@ FEAAssembler.initialize(elemCallBack)
 # Static problem
 evalFuncs = ["mass", "ks_vmfailure"]
 
+<<<<<<< HEAD:tests/cantilever_bending/tacs-analysis.py
 num_eig = 10
 MP = FEAAssembler.createModalProblem("modal", sigma=10.0, numEigs=num_eig)
+=======
+MP = FEAAssembler.createModalProblem("modal", sigma=sigma, numEigs=10)
+>>>>>>> 638d45c38999343b7d02c2a023b2d29bdc370522:tests/cantilever/tacs-analysis.py
 MP.setOption("printLevel", 2)
 MP.solve()
 
