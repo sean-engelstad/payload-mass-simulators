@@ -26,7 +26,7 @@ if __name__ == "__main__":
     init_design = np.array([0.3, 5e-3, 5e-3]*ncomp)
     num_dvs = init_design.shape[0]
 
-    beam3d = Beam3DTree(material, tree)
+    beam3d = BeamAssembler(material, tree)
 
     demo = False
     if demo:
@@ -53,9 +53,10 @@ if __name__ == "__main__":
     if debug:
         # FD test on the gradients
         for imode in range(4):
-            beam3d.freq_FD_test(init_design, imode, h=1e-3)
+            beam3d.freq_FD_test(init_design, imode, h=1e-5)
             beam3d.dKdx_FD_test(init_design, imode, h=1e-5)
             beam3d.dMdx_FD_test(init_design, imode, h=1e-5)
+        exit()
 
     # optimization
     # -------------------------------------
@@ -64,6 +65,7 @@ if __name__ == "__main__":
 
     target_eigvals = np.array([24.3, 29.4, 99.5, 173.6])
     target_mass = 176.407 # kg
+    target_centroid = np.array([0.0104782366, 0.005086985, 0.417962588]) #m
 
     def get_functions(x_dict):
         xlist = x_dict["vars"]
@@ -77,6 +79,11 @@ if __name__ == "__main__":
         mass = beam3d.get_mass(xarr)
         funcs['mass'] = (mass - target_mass)**2
 
+        centroid = tree.get_centroid(xarr)
+        centroidError = (centroid - target_centroid)**2
+        # for i in range(3):
+            # funcs[f'centroid{i}'] = centroidError[i]
+
         # writeout a current opt-status.txt file
         hdl = open("opt-status.txt", mode='w')
         hdl.write("funcs:\n")
@@ -86,6 +93,12 @@ if __name__ == "__main__":
                 hdl.write(f"\tfunc {key} = {funcs[key]:.4e}, target {target_eigvals[i]}\n")
             elif 'mass' in key:
                 hdl.write(f"\tfunc {key} = {mass:.4e}, target {target_mass}\n")
+            elif 'centroid0' in key:
+                hdl.write(f"\tfunc {key} = {centroid[0]:.4e}, target {target_centroid[0]}\n")
+            elif 'centroid1' in key:
+                hdl.write(f"\tfunc {key} = {centroid[1]:.4e}, target {target_centroid[1]}\n")
+            elif 'centroid2' in key:
+                hdl.write(f"\tfunc {key} = {centroid[2]:.4e}, target {target_centroid[2]}\n")
             else:
                 hdl.write(f"\tfunc {key} = {funcs[key]:.4e}\n")
         hdl.write("vars:\n")
@@ -120,6 +133,10 @@ if __name__ == "__main__":
         mass_gradient = beam3d.get_mass_gradient(xarr)
         sens['mass'] = {'vars': 2 * (beam3d.get_mass(xarr) - target_mass) * mass_gradient} # add actual later
         
+        centroid_gradient = tree.get_centroid_gradient(xarr)
+        # for i in range(3):
+            # sens[f'centroid{i}'] = {'vars': 2 * (tree.get_centroid(xarr) - target_centroid)[i] * centroid_gradient[i,:]}
+
         return sens, False
     
     opt_problem = Optimization("tuning-fork", get_functions)
@@ -143,6 +160,14 @@ if __name__ == "__main__":
             upper=target_eigvals[imode],
             scale=1e-2
         )
+
+    # for i in range(3):  # Constraints for x, y, and z centroid coordinates
+    #     opt_problem.addCon(
+    #         f"centroid{i}",
+    #         lower=target_centroid[i],
+    #         upper=target_centroid[i],
+    #         scale=1e-2
+    #     )
 
     # run an SNOPT optimization
     snoptimizer = SNOPT(

@@ -41,27 +41,33 @@ def basis_fcn(ind, xi):
     else:
         return 0.5 * (1 + xi)
 
+def norm3(x):
+    # more friendly for a complex-step over the length
+    return np.sqrt(x[0]**2 + x[1]**2 + x[2]**2)
+
 def get_beam_node_normals(N_BASIS, xpts, axis):
     # get beam normal directions
     # ref axis is basically the second direction
 
-    fn1 = np.zeros((3*N_BASIS,))
-    fn2 = np.zeros((3*N_BASIS,))
+    fn1 = np.zeros((3*N_BASIS,), dtype=np.complex128)
+    fn2 = np.zeros((3*N_BASIS,), dtype=np.complex128)
 
     for ibasis in range(N_BASIS):
         pt = -1.0 + 2.0 * ibasis # -1 or 1
 
         # get fields grad X0xi
         X0xi = xpts[0:3] * -0.5 + xpts[3:6] * 0.5
-        t1 = X0xi / np.linalg.norm(X0xi)
+        t1 = X0xi / norm3(X0xi)
 
         # get second direction
         t2 = axis - np.dot(t1, axis) * t1
-        t2 /= np.linalg.norm(t2)
+        # print(f"pre {axis=} {X0xi=} {xpts=} {t1=} {t2=}")
+        t2 /= norm3(t2)
 
         # get remaining direction
         t3 = np.cross(t1, t2)
 
+        # print(f"{t1=} {t2=}")
         # store node normals
         fn1[3*ibasis:3*(ibasis+1)] = t2[:]
         fn2[3*ibasis:3*(ibasis+1)] = t3[:]

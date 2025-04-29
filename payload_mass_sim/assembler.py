@@ -71,10 +71,6 @@ class BeamAssembler:
             rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
             ref_axis = np.zeros((3,))
             ref_axis[rem_orient_ind[0]] = 1.0
-            # print(f"{ref_axis=}")
-            # ref_axis = np.array([0.0, 1.0, 0.0]) # see below we rotate from x-dir later
-
-            # print(f"{ref_axis=}")
 
             # set element xpts (for one element in straight comp, all same Kelem + Melem then)
             elem_xpts = np.concatenate([xpt1, xpt2], axis=0)
@@ -88,30 +84,6 @@ class BeamAssembler:
             CM = Cfull[6:]
             Kelem = get_stiffness_matrix(elem_xpts, qvars, ref_axis, CK)
             Melem = get_mass_matrix(elem_xpts, qvars, ref_axis, CM)
-
-            # now only need to rotate Kelem
-            use_perm = False
-            if use_perm:
-                # perm_ind0 rotates u,v,w; perm_ind1 rotates the thx - thz (diff bc right hand rule)
-                if orient_ind == 0:
-                    perm_ind0 = np.array([0, 1, 2])
-                    perm_ind1 = np.array([0, 1, 2])
-                elif orient_ind == 1:
-                    perm_ind0 = np.array([1, 0, 2])
-                    perm_ind1 = np.array([2, 0, 1])
-                elif orient_ind == 2:
-                    perm_ind0 = np.array([2, 1, 0])
-                    perm_ind1 = np.array([1, 2, 0])
-                # later try perm_ind1 is swapped differently with th than disp
-                perm_ind1 = perm_ind0
-                # print(f"{perm_ind0=}")
-                perm_ind = np.concatenate([perm_ind0, perm_ind1+3, perm_ind0+6, perm_ind1+9], axis=0)
-
-                Kelem = Kelem[perm_ind,:][:,perm_ind]
-                Melem = Melem[perm_ind,:][:,perm_ind] # not really necessary to permute this one
-
-            # print(f"{icomp=} {orient_ind=} {np.diag(Kelem)[:6]=}")
-            # print(f"{icomp=} {orient_ind=} {np.diag(Melem)[:6]=}")
 
             # now do assembly step for each element
             start = nelem_per_comp * icomp
@@ -220,16 +192,25 @@ class BeamAssembler:
         print(f"mass FD test: {FD_val=} {HC_val=}")
         return
     
-    def dKdx_FD_test(self, x, imode, h=1e-5):
+    def dKdx_FD_test(self, x, imode, h=1e-4):
         p_vec = np.random.rand(self.num_dvs)
+        # p_vec = np.zeros((self.num_dvs,))
+        # p_vec[2] = 1.0 # length good now, t1 + t2 derivs fail
         self.get_frequencies(x)
         Kr0 = self.Kr.copy()
         phi = self.eigvecs[:,imode].copy()
         dKrdx_grad = self._get_dKdx_term(x, imode)
+        # print(F"{dKrdx_grad=}")
+        # print(f"{phi[:12]=}")
         self.get_frequencies(x + p_vec * h)
         Kr2 = self.Kr.copy()
         
         dKr_dx_p = (Kr2 - Kr0) / h
+        # plt.imshow(dKr_dx_p)
+        # plt.show()
+
+        # print(F"{dKr_dx_p=}")
+        # print(F"{np.diag(dKr_dx_p)=}")
         FD_val = np.dot(np.dot(dKr_dx_p, phi), phi)
         HC_val = np.dot(p_vec, dKrdx_grad)
         print(f"dK/dx FD test: {FD_val=} {HC_val=}")
@@ -237,6 +218,8 @@ class BeamAssembler:
     
     def dMdx_FD_test(self, x, imode, h=1e-5):
         p_vec = np.random.rand(self.num_dvs)
+        # p_vec = np.zeros((self.num_dvs,))
+        # p_vec[0] = 1.0
         self.get_frequencies(x)
         Mr0 = self.Mr.copy()
         phi = self.eigvecs[:,imode].copy()
@@ -253,7 +236,8 @@ class BeamAssembler:
     def _get_dKdx_term(self, x, imode):
         # use trick to get phi^T * dK/dx * phi
         # namely find dU/dx at element level with Ue(phi,x) of ue^T * Ke * ue with ue = phi\
-        dKdx_grad = np.zeros(3 * self.ncomp)
+        dKdx_grad = np.zeros((3 * self.ncomp,))
+        nelem_per_comp = self.tree.nelem_per_comp
 
         # get relevant eigenvector
         phi_red = self.eigvecs[:,imode]
@@ -275,8 +259,10 @@ class BeamAssembler:
             xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
             dxpt = xpt2 - xpt1
             orient_ind = np.argmax(np.abs(dxpt))
-            ref_axis = np.array([0.0, 1.0, 0.0]) # see below we rotate from x-dir later
-            elem_xpts0 = np.array([0.0] * 3 + [L/nelem_per_comp, 0.0, 0.0])
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+            elem_xpts0 = np.concatenate([xpt1, xpt2], axis=0)
 
             # initial const data
             Cfull = get_constitutive_data(self.material, t1, t2)
@@ -289,15 +275,14 @@ class BeamAssembler:
                 glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
                 phie = phi[glob_dof]
 
-                detXd = L / nelem_per_comp / 2.0
-
                 # compute dK/dL term ------------
                 h = 1e-30 # complex-step method on first order
-                pert_xpts = np.array([0.0] * 3 + [1/nelem_per_comp, 0.0, 0.0])
+                zero = np.array([0.0]*3)
+                pert_xpts = np.concatenate([zero, np.abs(dxpt) / L], axis=0)
                 dKdx_grad[3*icomp] += np.imag(get_strain_energy(
                     elem_xpts0 + pert_xpts * 1j * h,
                     phie, ref_axis, CK
-                )) / h / (0.5 * detXd)
+                )) / h * 2.0
 
                 # compute dK/t1 term ------------
                 Cd1 = get_constitutive_data(self.material, t1 + h * 1j, t2)
@@ -305,20 +290,22 @@ class BeamAssembler:
                     elem_xpts0,
                     phie, ref_axis,
                     Cd1[:6]
-                )) / h / (0.5 * detXd)
+                )) / h * 2.0
 
                 # compute dK/t2 term ------------
                 Cd2 = get_constitutive_data(self.material, t1, t2 + h * 1j)
-                dKdx_grad[3*icomp+1] += np.imag(get_strain_energy(
+                dKdx_grad[3*icomp+2] += np.imag(get_strain_energy(
                     elem_xpts0,
                     phie, ref_axis,
                     Cd2[:6]
-                )) / h / (0.5 * detXd)
+                )) / h * 2.0
+        return dKdx_grad
 
     def _get_dMdx_term(self, x, imode):
         # use trick to get phi^T * dM/dx * phi
         # namely find dU/dx at element level with Te(phi,x) of ue^T * Me * ue with ue = phi
-        dKdx_grad = np.zeros(3 * self.ncomp)
+        dMdx_grad = np.zeros((3 * self.ncomp,))
+        nelem_per_comp = self.tree.nelem_per_comp
 
         # get relevant eigenvector
         phi_red = self.eigvecs[:,imode]
@@ -332,8 +319,6 @@ class BeamAssembler:
             t1 = x[3*icomp+1]
             t2 = x[3*icomp+2]
 
-            detXd = L / nelem_per_compj / 2.0
-
             # prelim --------------
             # get orient ind and ref axis
             first_elem = nelem_per_comp * icomp
@@ -342,8 +327,10 @@ class BeamAssembler:
             xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
             dxpt = xpt2 - xpt1
             orient_ind = np.argmax(np.abs(dxpt))
-            ref_axis = np.array([0.0, 1.0, 0.0]) # see below we rotate from x-dir later
-            elem_xpts0 = np.array([0.0] * 3 + [L/nelem_per_comp, 0.0, 0.0])
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+            elem_xpts0 = np.concatenate([xpt1, xpt2], axis=0)
 
             # initial const data
             Cfull = get_constitutive_data(self.material, t1, t2)
@@ -358,27 +345,29 @@ class BeamAssembler:
 
                 # compute dK/dL term ------------
                 h = 1e-30 # complex-step method on first order
-                pert_xpts = np.array([0.0] * 3 + [1/nelem_per_comp, 0.0, 0.0])
-                dKdx_grad[3*icomp] += np.imag(get_kinetic_energy(
+                zero = np.array([0.0]*3)
+                pert_xpts = np.concatenate([zero, np.abs(dxpt) / L], axis=0)
+                dMdx_grad[3*icomp] += np.imag(get_kinetic_energy(
                     elem_xpts0 + pert_xpts * 1j * h,
                     phie, ref_axis, CM
-                )) / h / (0.5 * detXd)
+                )) / h * 2.0
 
                 # compute dK/t1 term ------------
                 Cd1 = get_constitutive_data(self.material, t1 + h * 1j, t2)
-                dKdx_grad[3*icomp+1] += np.imag(get_kinetic_energy(
+                dMdx_grad[3*icomp+1] += np.imag(get_kinetic_energy(
                     elem_xpts0,
                     phie, ref_axis,
                     Cd1[6:]
-                )) / h / (0.5 * detXd)
+                )) / h * 2.0
 
                 # compute dK/t2 term ------------
                 Cd2 = get_constitutive_data(self.material, t1, t2 + h * 1j)
-                dKdx_grad[3*icomp+1] += np.imag(get_kinetic_energy(
+                dMdx_grad[3*icomp+2] += np.imag(get_kinetic_energy(
                     elem_xpts0,
                     phie, ref_axis,
                     Cd2[6:]
-                )) / h / (0.5 * detXd)
+                )) / h * 2.0
+        return dMdx_grad
 
     # PLOT UTILS -------------------------
 

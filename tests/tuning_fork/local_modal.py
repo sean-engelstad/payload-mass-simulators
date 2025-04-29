@@ -36,6 +36,6 @@ if __name__ == "__main__":
     nmodes = 5
     beam3d.plot_eigenmodes(
         nmodes=nmodes,
-        show=False,
+        show=True,
         def_scale=3.0
     )

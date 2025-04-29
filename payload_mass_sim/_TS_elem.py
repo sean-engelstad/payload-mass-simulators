@@ -22,12 +22,8 @@ def get_strain_energy(
 ) -> np.ndarray: 
 
     fn1, fn2 = get_beam_node_normals(N_BASIS, xpts, ref_axis)
-
-    # print(f"{fn1=}\n{fn2=}")
-
     d1 = compute_director(qvars, fn1)
     d2 = compute_director(qvars, fn2)
-
     ety = compute_tying_strains(xpts, fn1, fn2, qvars, d1, d2)
 
     Uenergy = 0.0
@@ -50,9 +46,9 @@ def get_strain_energy(
         n2_xi = 0.5 * (fn2[3:] - fn2[:3])
 
         # normalize and get transform T matrix
-        t1 = X0_xi / np.linalg.norm(X0_xi)
+        t1 = X0_xi / norm3(X0_xi)
         t2 = ref_axis - np.dot(t1, ref_axis) * t1
-        t2 /= np.linalg.norm(t2)
+        t2 /= norm3(t2)
         t3 = np.cross(t1, t2)
         T = np.array([list(t1), list(t2), list(t3)]).T
         # print(f"{T=} {t1=} {t2=} {t3=}")
