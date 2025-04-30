@@ -1,5 +1,5 @@
 
 # all python modules to import to our main python package
-from .solver_3D import *
+from .assembler import *
 from .tree_data import *
 from .material import *

@@ -11,7 +11,7 @@ from scipy.linalg import eigh
 
 
 class Beam3DTree:
-    def __init__(self, material:Material, tree:TreeData):
+    def __init__(self, material:Material, tree:TreeData, timoshenko = True):
         self.material = material
         self.tree = tree
 
@@ -49,6 +49,9 @@ class Beam3DTree:
 
         self.freq_err_hist = []
         self.freq_hist = []
+
+        # check if timoshenko method is needed
+        self.timoshenko = timoshenko
 
     def _build_sparse_matrices(self, x):
         # TODO : use design variables to compute K, M as sparse BCSR matrices
@@ -95,12 +98,9 @@ class Beam3DTree:
             # get element stiffness matrices
             K_ax = self.E * A / L_elem * get_kelem_axial() * self._axial_mult
             K_tor = self.G * J / L_elem * get_kelem_torsion() * self._tor_mult
-            K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse() * self._bend1_mult
-            K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse() * self._bend2_mult
+            # K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse() * self._bend1_mult
+            # K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse() * self._bend2_mult
 
-            # don't know where this exact error comes from, but we are off by this much
-            K1_tr *= 16.0
-            K2_tr *= 16.0
             K_ax /= 2.0
             K_tor /= 2.0
 
@@ -109,8 +109,32 @@ class Beam3DTree:
             M_ax *= 3.0 # for lumped mass matrix
             M_tor = self.rho * J * L_elem / 6 * get_melem_torsion()
             M_tor *= 3.0 # for lumped mass matrix
-            M1_tr = self.rho * A * L_elem * get_melem_transverse()
-            M2_tr = self.rho * A * L_elem * get_melem_transverse()
+            # M1_tr = self.rho * A * L_elem * get_melem_transverse()
+            # M2_tr = self.rho * A * L_elem * get_melem_transverse()
+
+            # get element stiffness matrices (depending on if timoshenko is needed)
+            if self.timoshenko:
+                # Stiffness matrices for timoshenko theory
+                K1_tr = get_kelem_transverse_timoshenko(xscale=L_elem, E=self.E, I=I1, ks=5/6, G=self.G, A=A) * self._bend1_mult
+                K2_tr = get_kelem_transverse_timoshenko(xscale=L_elem, E=self.E, I=I2, ks=5/6, G=self.G, A=A) * self._bend2_mult
+                # Mass matrices for timoshenko theory
+                M1_tr = get_melem_transverse_timoshenko(xscale=L_elem, rho=self.rho, A=A, I=I1)
+                M2_tr = get_melem_transverse_timoshenko(xscale=L_elem, rho=self.rho, A=A, I=I2)
+
+                # K1_tr /= 3.0
+                # K2_tr /= 3.0
+
+            else:
+                # Stiffness matrices for euler-bernoulli beam theory
+                K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse() * self._bend1_mult
+                K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse() * self._bend2_mult
+                # Mass matrices for euler-bernoulli beam theory
+                M1_tr = self.rho * A * L_elem * get_melem_transverse()
+                M2_tr = self.rho * A * L_elem * get_melem_transverse()
+
+                # don't know where this exact error comes from, but we are off by this much
+                K1_tr *= 16.0
+                K2_tr *= 16.0
 
             # figure out which element nodes correspond to axial, torsion, transverse depending
             # on the beam orientation

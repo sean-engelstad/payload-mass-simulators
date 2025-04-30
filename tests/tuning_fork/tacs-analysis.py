@@ -48,7 +48,7 @@ J = 2 * Iz
 # this strongly affects eigenvalues if above 1e3, why does it increase eigenvalues though?
 # when smaller it reduces the eigenvalue until thin-walled limit (thought should be other way around)
 # kTransverse = 1.0e4
-kTransverse = 1.0
+kTransverse = 5/6
 
 # Callback function used to setup TACS element objects and DVs
 def elemCallBack(dvNum, compID, compDescript, elemDescripts, globalDVs, **kwargs):

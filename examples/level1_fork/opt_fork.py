@@ -26,7 +26,7 @@ if __name__ == "__main__":
     init_design = np.array([0.3, 5e-3, 5e-3]*ncomp)
     num_dvs = init_design.shape[0]
 
-    beam3d = Beam3DTree(material, tree)
+    beam3d = BeamAssembler(material, tree)
 
     demo = False
     if demo:
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     if debug:
         # FD test on the gradients
         for imode in range(4):
-            beam3d.freq_FD_test(init_design, imode, h=1e-3)
+            beam3d.freq_FD_test(init_design, imode, h=1e-5)
             beam3d.dKdx_FD_test(init_design, imode, h=1e-5)
             beam3d.dMdx_FD_test(init_design, imode, h=1e-5)
         exit()
