@@ -18,8 +18,14 @@ tree = TreeData(
         nelem_per_comp=10
     )
 
-centroid = tree.get_centroid(x)
-print(f"{centroid=}")
+material = Material.aluminum()
+beam3d = Beam3DTree(material, tree)
 
-tree.centroid_FD_test(x)
-# tree.centroid_CS_test(x)
+# centroid = tree.get_centroid(x)
+# print(f"{centroid=}")
+# tree.centroid_FD_test(x)
+
+for imode in range(4):
+    beam3d.freq_FD_test(x, imode, h=1e-3)
+    beam3d.dKdx_FD_test(x, imode, h=1e-5)
+    beam3d.dMdx_FD_test(x, imode, h=1e-5)
