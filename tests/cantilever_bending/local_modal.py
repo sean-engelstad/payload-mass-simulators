@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # A = 1e-2, Iy = Iz = 8.333e-6, Iyz = 0
     # J = 2*Iy=1.666e-5, all other properties zero
 
-    beam3d = Beam3DTree(material, tree)
+    beam3d = BeamAssembler(material, tree)
 
     # debug make other frequencies really high to just use bending 1
     # beam3d._axial_mult = 1e4

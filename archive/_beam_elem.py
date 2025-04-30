@@ -122,3 +122,67 @@ def get_felem_transverse(xscale=1.0):
         for ibasis in range(nbasis):
             felem[ibasis] += weight * xscale * get_basis_fcn(ibasis, xi, xscale)
     return felem
+
+
+
+
+# applying timoshenko beam theory to beam elements
+# Defining the two basis functions for our elemental coordinates:
+def get_basis_func_timoshenko(xi):
+    ''' define the basis functions for the Timoshenko beam element '''
+    psi1 = (1 + xi) / 2
+    psi2 = (1 - xi) / 2
+    dpsi1 = 0.5
+    dpsi2 = -0.5
+    return psi1, psi2, dpsi1, dpsi2
+
+# Computing the element stiffness matrix:
+def get_kelem_transverse_timoshenko(xscale=1, E=1, I=1, ks=5/6, G=1, A=1):
+    ''' get elemental stiffness matrix for the Timoshenko beam element '''
+    nquad = 4
+    nbasis = 4
+    Kelem_tim = np.zeros((nbasis, nbasis))
+    J = xscale / 2
+    D = np.array([
+        [E * I, 0], 
+        [0, ks * G * A]
+    ])
+    for iquad in range(nquad):
+        xi, weight = get_quadrature_rule4(iquad)
+        psi1, psi2, dpsi1, dpsi2 = get_basis_func_timoshenko(xi)
+        B = np.array([
+            [0, dpsi1/J, 0, dpsi2/J],
+            [dpsi1/J, -psi1, dpsi2/J, -psi2]
+        ])
+        # computhing stiffness matrix from D and B arrays
+        Kelem_tim += weight * ((B.T @ D @ B) * J)
+    
+    # import matplotlib.pyplot as plt
+    # plt.imshow(Kelem_tim)
+    # plt.show()
+    return Kelem_tim
+
+# Computing the element mass matrix:
+def get_melem_transverse_timoshenko(xscale=1, rho=1, A=1, I=1):
+    ''' get elemental mass matrix for the Timoshenko beam element '''
+    nquad = 4
+    nbasis = 4
+    Melem_tim = np.zeros((nbasis, nbasis))
+    J = xscale / 2
+    for iquad in range(nquad):
+        xi , weight = get_quadrature_rule4(iquad)
+        psi1, psi2, dpsi1, dpsi2 = get_basis_func_timoshenko(xi)
+        H1 = np.array([psi1, 0, psi2, 0]).reshape((4,1))
+        H2 = np.array([0, psi1, 0, psi2]).reshape((4,1))
+        # computing the mass matrix from H1 and H2 arrays
+        Melem_tim += weight * (rho * A * (H1 @ H1.T) + rho * I * (H2 @ H2.T)) * J
+
+    # import matplotlib.pyplot as plt
+    # plt.imshow(Melem_tim)
+    # plt.show()
+    return Melem_tim
+
+
+
+
+

@@ -12,7 +12,7 @@ if __name__ == "__main__":
     tree = TreeData(
         tree_start_nodes=[0] + [1] * 4 + [2,3,4,5],
         tree_directions=[5] + [0,1,2,3] + [5]*4,
-        nelem_per_comp=10
+        nelem_per_comp=10 #10
     )
     # init_lengths = [1.0]*tree.ncomp
     # xpts = tree.get_xpts(init_lengths)
@@ -31,7 +31,7 @@ if __name__ == "__main__":
        0.00351356, 0.00346978]
     opt_design = np.array(opt_design)
 
-    beam3d = Beam3DTree(material, tree)
+    beam3d = BeamAssembler(material, tree)
 
     # now build 3D beam solver and solve the eigenvalue problem
     # freqs = beam3d.get_frequencies(init_design)
@@ -43,12 +43,12 @@ if __name__ == "__main__":
         def_scale=1.0
     )
 
-    # now also test linear static
-    beam3d._solve_static(opt_design)
-    beam3d.plot_static(
-        show=False,
-        def_scale=1e1,
-    )
+    # # now also test linear static
+    # beam3d._solve_static(opt_design)
+    # beam3d.plot_static(
+    #     show=False,
+    #     def_scale=1e1,
+    # )
     
 
     

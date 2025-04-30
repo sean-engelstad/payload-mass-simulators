@@ -1,0 +1,97 @@
+Kdiag @ u0 = 5.6090e+05
+Kdiag @ v0 = 5.6090e+05
+Kdiag @ w0 = 1.7500e+06
+Kdiag @ thx0 = 1.4023e+05
+Kdiag @ thy0 = 1.4023e+05
+Kdiag @ thz0 = 2.8045e+00
+Kdiag @ u1 = 5.1827e+06
+Kdiag @ v1 = 5.1827e+06
+Kdiag @ w1 = 3.9936e+06
+Kdiag @ thx1 = 4.2069e+05
+Kdiag @ thy1 = 4.2069e+05
+Kdiag @ thz1 = 5.6091e+05
+Kdiag @ u2 = 2.3109e+06
+Kdiag @ v2 = 1.1218e+06
+Kdiag @ w2 = 2.3109e+06
+Kdiag @ thx2 = 1.4023e+05
+Kdiag @ thy2 = 2.8046e+05
+Kdiag @ thz2 = 1.4023e+05
+Kdiag @ u3 = 2.3109e+06
+Kdiag @ v3 = 1.1218e+06
+Kdiag @ w3 = 2.3109e+06
+Kdiag @ thx3 = 1.4023e+05
+Kdiag @ thy3 = 2.8046e+05
+Kdiag @ thz3 = 1.4023e+05
+Kdiag @ u4 = 1.1218e+06
+Kdiag @ v4 = 2.3109e+06
+Kdiag @ w4 = 2.3109e+06
+Kdiag @ thx4 = 2.8046e+05
+Kdiag @ thy4 = 1.4023e+05
+Kdiag @ thz4 = 1.4023e+05
+Kdiag @ u5 = 1.1218e+06
+Kdiag @ v5 = 2.3109e+06
+Kdiag @ w5 = 2.3109e+06
+Kdiag @ thx5 = 2.8046e+05
+Kdiag @ thy5 = 1.4023e+05
+Kdiag @ thz5 = 1.4023e+05
+Kdiag @ u6 = 5.6090e+05
+Kdiag @ v6 = 5.6090e+05
+Kdiag @ w6 = 1.7500e+06
+Kdiag @ thx6 = 1.4023e+05
+Kdiag @ thy6 = 1.4023e+05
+Kdiag @ thz6 = 2.8045e+00
+Kdiag @ u7 = 5.6090e+05
+Kdiag @ v7 = 5.6090e+05
+Kdiag @ w7 = 1.7500e+06
+Kdiag @ thx7 = 1.4023e+05
+Kdiag @ thy7 = 1.4023e+05
+Kdiag @ thz7 = 2.8045e+00
+Kdiag @ u8 = 5.6090e+05
+Kdiag @ v8 = 5.6090e+05
+Kdiag @ w8 = 1.7500e+06
+Kdiag @ thx8 = 1.4023e+05
+Kdiag @ thy8 = 1.4023e+05
+Kdiag @ thz8 = 2.8045e+00
+Kdiag @ u9 = 5.6090e+05
+Kdiag @ v9 = 5.6090e+05
+Kdiag @ w9 = 1.7500e+06
+Kdiag @ thx9 = 1.4023e+05
+Kdiag @ thy9 = 1.4023e+05
+Kdiag @ thz9 = 2.8045e+00
+
+icomp=0 orient_ind=2 np.diag(Kelem)[:6]=array([5.60897436e+05, 5.60897436e+05, 1.75000000e+06, 1.40228005e+05,
+       1.40228005e+05, 2.80448718e+00])
+icomp=0 orient_ind=2 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 7.03125e-08, 7.03125e-08,
+       1.40625e-07])
+icomp=1 orient_ind=0 np.diag(Kelem)[:6]=array([1.75000000e+06, 5.60897436e+05, 5.60897436e+05, 2.80448718e+00,
+       1.40228005e+05, 1.40228005e+05])
+icomp=1 orient_ind=0 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 1.40625e-07, 7.03125e-08,
+       7.03125e-08])
+icomp=2 orient_ind=0 np.diag(Kelem)[:6]=array([1.75000000e+06, 5.60897436e+05, 5.60897436e+05, 2.80448718e+00,
+       1.40228005e+05, 1.40228005e+05])
+icomp=2 orient_ind=0 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 1.40625e-07, 7.03125e-08,
+       7.03125e-08])
+icomp=3 orient_ind=1 np.diag(Kelem)[:6]=array([5.60897436e+05, 1.75000000e+06, 5.60897436e+05, 1.40228005e+05,
+       2.80448718e+00, 1.40228005e+05])
+icomp=3 orient_ind=1 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 7.03125e-08, 1.40625e-07,
+       7.03125e-08])
+icomp=4 orient_ind=1 np.diag(Kelem)[:6]=array([5.60897436e+05, 1.75000000e+06, 5.60897436e+05, 1.40228005e+05,
+       2.80448718e+00, 1.40228005e+05])
+icomp=4 orient_ind=1 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 7.03125e-08, 1.40625e-07,
+       7.03125e-08])
+icomp=5 orient_ind=2 np.diag(Kelem)[:6]=array([5.60897436e+05, 5.60897436e+05, 1.75000000e+06, 1.40228005e+05,
+       1.40228005e+05, 2.80448718e+00])
+icomp=5 orient_ind=2 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 7.03125e-08, 7.03125e-08,
+       1.40625e-07])
+icomp=6 orient_ind=2 np.diag(Kelem)[:6]=array([5.60897436e+05, 5.60897436e+05, 1.75000000e+06, 1.40228005e+05,
+       1.40228005e+05, 2.80448718e+00])
+icomp=6 orient_ind=2 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 7.03125e-08, 7.03125e-08,
+       1.40625e-07])
+icomp=7 orient_ind=2 np.diag(Kelem)[:6]=array([5.60897436e+05, 5.60897436e+05, 1.75000000e+06, 1.40228005e+05,
+       1.40228005e+05, 2.80448718e+00])
+icomp=7 orient_ind=2 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 7.03125e-08, 7.03125e-08,
+       1.40625e-07])
+icomp=8 orient_ind=2 np.diag(Kelem)[:6]=array([5.60897436e+05, 5.60897436e+05, 1.75000000e+06, 1.40228005e+05,
+       1.40228005e+05, 2.80448718e+00])
+icomp=8 orient_ind=2 np.diag(Melem)[:6]=array([3.37500e-02, 3.37500e-02, 3.37500e-02, 7.03125e-08, 7.03125e-08,
+       1.40625e-07])

@@ -12,9 +12,9 @@ if __name__ == "__main__":
     # TODO : modify tree start nodes and directions graph
     #    in order to have level 2 optimization
     tree = TreeData(
-        tree_start_nodes=[0] + [1]*4 + [2,3,4,5],
-        tree_directions=[5] + [0,1,2,3] + [5]*4,
-        nelem_per_comp=10 #10
+        tree_start_nodes=[0] + [1]*2,
+        tree_directions=[5] + [0,2],
+        nelem_per_comp=1 #40
     )
 
     # initial design variables
@@ -36,6 +36,6 @@ if __name__ == "__main__":
     nmodes = 5
     beam3d.plot_eigenmodes(
         nmodes=nmodes,
-        show=True,
+        show=False,
         def_scale=3.0
     )
