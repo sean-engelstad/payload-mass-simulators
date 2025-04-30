@@ -49,7 +49,7 @@ if __name__ == "__main__":
         dt = time.time() - start_time
         print(f"\tcomputed freq grads in {dt:.4f} seconds.") 
 
-    debug = False
+    debug = True
     if debug:
         # FD test on the gradients
         for imode in range(4):

@@ -122,7 +122,7 @@ comm.Barrier()
 
 # MODAL analysis
 # ------------------
-
+target_eigvals = [24.3, 29.4, 99.5, 173.6, 0.0]
 class TacsModalShape:
     def __init__(self, tacs_model, f2f_model, sigma=10.0, nEig=6):
         self.tacs_model = tacs_model
@@ -204,12 +204,14 @@ class TacsModalShape:
         funcs['mass-err'] = 0.0
 
         # writeout the new design and funcs to a file
-        target_eigvals = [24.4, 29.9, 42.3, 45.2]
         hdl = open("opt-status.txt", mode='w')
         hdl.write("funcs:\n")
         funcs_keys = list(funcs.keys())
         for i,key in enumerate(funcs_keys):
-            hdl.write(f"\tfunc {key} = {funcs[key]:.4e}, target {target_eigvals[i]}\n")
+            if "eig" in key:
+                hdl.write(f"\tfunc {key} = {funcs[key]:.4e}, target {target_eigvals[i]}\n")
+            else:
+                hdl.write(f"\tfunc {key} = {funcs[key]:.4e}")
         hdl.write("vars:\n")
         for var in f2f_model.get_variables():
             hdl.write(f"\tvar {var.name} = {var.value:.4e}\n")
@@ -356,7 +358,6 @@ opt_problem.addObj(
 # TODO : add CG, 2 more eigvals, and later the modal mass constraints
 #    using eigenvectors
 
-target_eigvals = [24.4, 29.9, 42.3, 45.2]
 for ieig in range(tacs_modal_shape.nEig):
     opt_problem.addCon(
         f"eigsm.{ieig}",

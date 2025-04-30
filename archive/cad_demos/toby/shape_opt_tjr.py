@@ -77,12 +77,12 @@ for istiff in range(1, nstiff+1):
         lower=0.001, upper=0.999
     ).register_to(beam)
 
-# New 02/28 - independent skin thickness for all 4 sides
-for side in ["xy_front", "xy_back", "yz_front", "yz_back"]:
-    Variable.shape(f"skin_{side}_thickness", value=0.1).set_bounds(
-        lower=0.01, upper=0.5
-    ).register_to(beam)
-
+# New 02/28 - independent skin thickness for all 4 sides in each gap between stiffeners
+for gap in range(1, nstiff):
+    for side in ["xy_front", "xy_back", "yz_front", "yz_back"]:
+        Variable.structural(f"gap_{nstiff}_skin_{side}_thickness", value=0.1).set_bounds(
+            lower=0.01, upper=0.5
+        ).register_to(beam)
 
 caps2tacs.PinConstraint("base").register_to(tacs_model)
 caps2tacs.GridForce("loading", direction=[0, 0, 1.0], magnitude=10).register_to(tacs_model)
@@ -225,7 +225,7 @@ class TacsModalShape:
         funcs['mass-err'] = 0.0
 
         # writeout the new design and funcs to a file
-        target_eigvals = [24.4, 29.9, 42.3, 45.2]
+        target_eigvals = [24.4, 29.9, 42.3, 45.2, 0]
         hdl = open("opt-status.txt", mode='w')
         hdl.write("funcs:\n")
         funcs_keys = list(funcs.keys())

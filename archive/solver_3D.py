@@ -63,6 +63,8 @@ class Beam3DTree:
         # get new xpts
         lengths = x[0::3]
         self.xpts = self.tree.get_xpts(lengths)
+        #print("xpts:\n", self.xpts)
+        #print(f"xpts shape: {self.xpts.shape}, expected at least {3*self.nnodes}")
 
         K = np.zeros((self.ndof, self.ndof))
         M = np.zeros((self.ndof, self.ndof))
@@ -73,6 +75,9 @@ class Beam3DTree:
             nodes = self.elem_conn[ielem]
             node1 = nodes[0]; node2 = nodes[1]
             xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            # print(f"xpts: {self.xpts}")
+            # print(f"xpt1: {xpt1}")
+            # print(f"xpt2: {xpt2}")
             dxpt = xpt2 - xpt1
             orient_ind = np.argmax(np.abs(dxpt))
             rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
@@ -365,6 +370,11 @@ class Beam3DTree:
             K1_tr = self.E * I1 / L_elem**3 * get_kelem_transverse()
             K2_tr = self.E * I2 / L_elem**3 * get_kelem_transverse()
 
+            K1_tr *= 16.0
+            K2_tr *= 16.0
+            K_ax /= 2.0
+            K_tor /= 2.0
+
             # first the length derivatives
             dL_elem = 1.0 / self.nelem_per_comp
             local_grad[0] = dL_elem * get_phys_grads(
@@ -468,7 +478,9 @@ class Beam3DTree:
 
             # for reference, get element mass matrices
             M_ax = self.rho * A * L_elem / 6 * get_melem_axial()
-            M_tor = self.rho * A * J * L_elem / 3 * get_melem_torsion()
+            M_ax *= 3.0
+            M_tor = self.rho * J * L_elem / 6 * get_melem_torsion()
+            M_tor *= 3.0
             M1_tr = self.rho * A * L_elem * get_melem_transverse()
             M2_tr = self.rho * A * L_elem * get_melem_transverse()
 
@@ -539,7 +551,7 @@ class Beam3DTree:
         HC_val = np.dot(mass_grad, p_vec)
         print(f"mass FD test: {FD_val=} {HC_val=}")
         return
-    
+
     def dKdx_FD_test(self, x, imode, h=1e-5):
         p_vec = np.random.rand(self.num_dvs)
         self.get_frequencies(x)

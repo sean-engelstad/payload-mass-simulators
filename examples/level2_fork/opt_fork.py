@@ -16,7 +16,7 @@ if __name__ == "__main__":
     tree = TreeData(
     tree_start_nodes=[0] + [1]*4 + [2,3,4,5] + [6,7,8,9]*2 + [10,11,12,13,14,15,16,17],
     tree_directions=[5] + [0,1,2,3] + [5]*4 + [3,3,1,1] + [2,2,0,0] + [5]*8,
-    nelem_per_comp=10 
+    nelem_per_comp=5 
     )
     # init_lengths = [1.0]*9+[0.5]*16
     # xpts = tree.get_xpts(init_lengths)
@@ -68,6 +68,15 @@ if __name__ == "__main__":
     #nmodes = 6 # we're targeting the first 4 eigenvalues for now
 
     #target_eigvals = np.array([24.3, 29.4, 99.5, 173.6, 1, 1])
+
+    xarr = init_design
+
+    freqs = beam3d.get_frequencies(xarr)
+
+    for imode in range(nmodes):
+            freq_grad = beam3d.get_frequency_gradient(xarr, imode)
+
+    exit()
 
     def get_functions(x_dict):
         xlist = x_dict["vars"]
