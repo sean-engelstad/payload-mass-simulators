@@ -1,10 +1,11 @@
 class Material:
-    def __init__(self, E, rho, nu, G, k_s):
+    def __init__(self, E, rho, nu, G, k_s, ys):
         self.E = E
         self.rho = rho
         self.nu = nu
         self.G = G
         self.k_s = k_s  # shear correction factor
+        self.ys = ys # yield stress
     
     @classmethod
     def aluminum(cls):
@@ -13,4 +14,5 @@ class Material:
 
         # Shear correction factor:
         k_s = 5/6
-        return cls(E, rho, nu, G, k_s)
+        ys = 11e6
+        return cls(E, rho, nu, G, k_s, ys)

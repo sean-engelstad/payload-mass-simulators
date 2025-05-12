@@ -12,7 +12,7 @@ if __name__ == "__main__":
     tree = TreeData(
         tree_start_nodes=[0],
         tree_directions=[1],
-        nelem_per_comp=10
+        nelem_per_comp=30
     )
     # init_lengths = [1.0]*tree.ncomp
     # xpts = tree.get_xpts(init_lengths)
@@ -38,11 +38,15 @@ if __name__ == "__main__":
     # now build 3D beam solver and solve the eigenvalue problem
     freqs = beam3d.get_frequencies(init_design)
     print(f"{freqs=}")
-    nmodes = 5
-    beam3d.plot_eigenmodes(
-        nmodes=nmodes,
-        show=False,
-        def_scale=0.1
-    )
+    # nmodes = 5
+    # beam3d.plot_eigenmodes(
+    #     nmodes=nmodes,
+    #     show=False,
+    #     def_scale=0.1
+    # )
 
+    beam3d.write_freq_to_vtk(nmodes=5)
+    
+
+    # structural analysis here
     
