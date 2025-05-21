@@ -60,11 +60,18 @@ opt_design = np.array([0.51557176, 0.22839125, 0.20479483, 0.39822018, 0.0830187
        0.01134946, 0.29856402, 0.01182893, 0.02284578, 0.20969153,
        0.00601115, 0.14087715])
 
+
+
 tree = TreeData(
     tree_start_nodes=[0] + [1]*4 + [2,3,4,5],
     tree_directions=[5] + [0,1,2,3] + [5]*4,
-    nelem_per_comp=1 # 1 since we only want to plot the beams (no FEM mesh here, just visualization)
+    nelem_per_comp=10 # 1 since we only want to plot the beams (no FEM mesh here, just visualization)
 )
+material = Material.aluminum()
+inertial_data = InertialData([1.0, 0.0, 0.0])
+
+beam3d = BeamAssembler(material, tree, inertial_data, rho_KS=10.0, safety_factor=1.5)
+
 
 def plot_design(fig, ax, x_design, origin, show=True):
 
@@ -151,3 +158,13 @@ fig = plt.figure(figsize=(8, 8))
 ax = fig.add_subplot(111, projection='3d')
 plot_design(fig, ax, opt_design, origin=[0.0]*3, show=False)
 plt.savefig("_modal/opt-design.png")
+
+freqs = beam3d.get_frequencies(opt_design)
+
+beam3d.write_freq_to_vtk(nmodes=5, file_prefix="_modal/")
+
+# debug linear static solve
+beam3d.solve_static(opt_design)
+fail_index = beam3d.get_failure_index(opt_design)
+print(f"{fail_index=}")
+beam3d.write_static_to_vtk(file_prefix="_modal/")
