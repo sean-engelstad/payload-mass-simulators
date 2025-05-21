@@ -122,6 +122,319 @@ def get_stiffness_matrix(
             Kelem[jvar,ivar] = Kelem[ivar,jvar]
     return Kelem
 
+def get_stresses(
+    xpts:np.ndarray, # 2 * 3 = 6 entries
+    qvars:np.ndarray, # 2 * 6 = 12 entries
+    ref_axis:np.ndarray, # 3 entries
+    CK:np.ndarray, # length 6 array of constitutive values
+) -> np.ndarray: 
+
+    fn1, fn2 = get_beam_node_normals(N_BASIS, xpts, ref_axis)
+    d1 = compute_director(qvars, fn1)
+    d2 = compute_director(qvars, fn2)
+    ety = compute_tying_strains(xpts, fn1, fn2, qvars, d1, d2)
+
+    Uenergy = 0.0
+
+    # similar code from strain energy here, but just at the center of the element
+    xi = 0.0
+
+    u0_xi = 0.5 * (qvars[6:] - qvars[:6])
+    u0_xi = u0_xi[:3]
+    d01 = d1[:3] * basis_fcn(0, xi) + d1[3:] * basis_fcn(1, xi)
+    d02 = d2[:3] * basis_fcn(0, xi) + d2[3:] * basis_fcn(1, xi)
+    d01_xi = 0.5 * (d1[3:] - d1[:3])
+    d02_xi = 0.5 * (d2[3:] - d2[:3])
+
+    X0 = xpts[:3] * basis_fcn(0, xi) + xpts[3:] * basis_fcn(1, xi)
+    X0_xi = 0.5 * (xpts[3:] - xpts[:3])
+    n1 = fn1[:3] * basis_fcn(0, xi) + fn1[3:] * basis_fcn(1, xi)
+    n2 = fn2[:3] * basis_fcn(0, xi) + fn2[3:] * basis_fcn(1, xi)
+    n1_xi = 0.5 * (fn1[3:] - fn1[:3])
+    n2_xi = 0.5 * (fn2[3:] - fn2[:3])
+
+    # normalize and get transform T matrix
+    t1 = X0_xi / norm3(X0_xi)
+    t2 = ref_axis - np.dot(t1, ref_axis) * t1
+    t2 /= norm3(t2)
+    t3 = np.cross(t1, t2)
+    T = np.array([list(t1), list(t2), list(t3)]).T
+    # print(f"{T=} {t1=} {t2=} {t3=}")
+
+    # compute additional matrices
+    Xd = np.array([list(X0_xi), list(n1), list(n2)]).T
+    Xdinv = np.linalg.inv(Xd)
+    detXd = np.linalg.det(Xd)
+    XdinvT = Xdinv @ T
+    # print(f"{u0_xi=} {d01=} {d02=}")
+    u0d = np.array([list(u0_xi), list(d01), list(d02)]).T
+    u0d_2 = u0d @ XdinvT
+    u0x = T.T @ u0d_2
+    e1 = np.array([1, 0, 0])
+    s0 = np.dot(np.dot(XdinvT, e1), e1)
+    sz1 = np.dot(np.dot(Xdinv, e1), n1_xi)
+    sz2 = np.dot(np.dot(Xdinv, e1), n2_xi)
+    # print(f"{s0=} {d01_xi=} {sz1=} {u0_xi=}")
+    d1x = s0 * np.dot(T.T, d01_xi - sz1 * u0_xi)
+    d2x = s0 * np.dot(T.T, d02_xi - sz2 * u0_xi)
+
+    # interp the tying strain is the same tying strain ety => gty for beam
+    # transform tying strain to local coords
+    e0ty = 2 * XdinvT[0,0] * ety
+
+    # evaluate the strain
+    # print(f"{u0x=} {d1x=} {d2x=} {e0ty=}")
+    strain = np.array([u0x[0,0], 0.5 * (d1x[2] - d2x[1]), d1x[0], d2x[0], e0ty[0], e0ty[1]])
+
+    # evalate the stress resultants (assume no cross-couplings since centered at centroid here)
+    stress = np.array([
+        CK[0] * strain[0], # CK[0] = E * A
+        CK[1] * strain[1], # CK[1] = G * J
+        CK[2] * strain[2], # CK[2] = E * Iz
+        CK[3] * strain[3], # CK[3] = E * Iy
+        CK[4] * strain[4], # CK[4] = ky * G * A
+        CK[5] * strain[5], # CK[5] = kz * G * A
+    ])
+
+    # these are stresses in the direction in local / transformed coordinates where 0 direc is axial, etc.
+    # need to rotate them depending on the beam ref axis, etc.
+    # don't think this conversion is quite right yet..
+    # cart_stress = np.zeros((6,))
+    # cart_stress[0:3] = T.T @ np.array([stress[0], stress[2], stress[3]]).astype(np.double) # loc axis sxx, syy, szz => global coords
+    # cart_stress[3:6] = T.T @ np.array([stress[1], stress[4], stress[5]]).astype(np.double) # loc axis sxy, syz, sxz => global coords
+    
+    # problem here => don't have sxx, syy, szz originally, etc.
+    return stress
+
+def get_bidirec_strain_energy(
+    xpts:np.ndarray, # 2 * 3 = 6 entries
+    qvars:np.ndarray, # 2 * 6 = 12 entries
+    qvars2:np.ndarray,
+    ref_axis:np.ndarray, # 3 entries
+    CK:np.ndarray, # length 6 array of constitutive values
+) -> np.ndarray: 
+    """meant for triple products like psi^T * dK/dx * u without forming Kelem"""
+
+    fn1, fn2 = get_beam_node_normals(N_BASIS, xpts, ref_axis)
+    d1 = compute_director(qvars, fn1)
+    d2 = compute_director(qvars, fn2)
+    ety = compute_tying_strains(xpts, fn1, fn2, qvars, d1, d2)
+
+    # second vars input
+    d1_2 = compute_director(qvars2, fn1)
+    d2_2 = compute_director(qvars2, fn2)
+    ety_2 = compute_tying_strains(xpts, fn1, fn2, qvars2, d1_2, d2_2)
+
+    Uenergy = 0.0
+
+    for iquad in range(2):
+        xi = -1.0 + 2.0 * iquad
+
+        u0_xi = 0.5 * (qvars[6:] - qvars[:6])
+        u0_xi = u0_xi[:3]
+        d01 = d1[:3] * basis_fcn(0, xi) + d1[3:] * basis_fcn(1, xi)
+        d02 = d2[:3] * basis_fcn(0, xi) + d2[3:] * basis_fcn(1, xi)
+        d01_xi = 0.5 * (d1[3:] - d1[:3])
+        d02_xi = 0.5 * (d2[3:] - d2[:3])
+
+        X0 = xpts[:3] * basis_fcn(0, xi) + xpts[3:] * basis_fcn(1, xi)
+        X0_xi = 0.5 * (xpts[3:] - xpts[:3])
+        n1 = fn1[:3] * basis_fcn(0, xi) + fn1[3:] * basis_fcn(1, xi)
+        n2 = fn2[:3] * basis_fcn(0, xi) + fn2[3:] * basis_fcn(1, xi)
+        n1_xi = 0.5 * (fn1[3:] - fn1[:3])
+        n2_xi = 0.5 * (fn2[3:] - fn2[:3])
+
+        # normalize and get transform T matrix
+        t1 = X0_xi / norm3(X0_xi)
+        t2 = ref_axis - np.dot(t1, ref_axis) * t1
+        t2 /= norm3(t2)
+        t3 = np.cross(t1, t2)
+        T = np.array([list(t1), list(t2), list(t3)]).T
+        # print(f"{T=} {t1=} {t2=} {t3=}")
+
+        # compute additional matrices
+        Xd = np.array([list(X0_xi), list(n1), list(n2)]).T
+        Xdinv = np.linalg.inv(Xd)
+        detXd = np.linalg.det(Xd)
+        XdinvT = Xdinv @ T
+        # print(f"{u0_xi=} {d01=} {d02=}")
+        u0d = np.array([list(u0_xi), list(d01), list(d02)]).T
+        u0d_2 = u0d @ XdinvT
+        u0x = T.T @ u0d_2
+        e1 = np.array([1, 0, 0])
+        s0 = np.dot(np.dot(XdinvT, e1), e1)
+        sz1 = np.dot(np.dot(Xdinv, e1), n1_xi)
+        sz2 = np.dot(np.dot(Xdinv, e1), n2_xi)
+        # print(f"{s0=} {d01_xi=} {sz1=} {u0_xi=}")
+        d1x = s0 * np.dot(T.T, d01_xi - sz1 * u0_xi)
+        d2x = s0 * np.dot(T.T, d02_xi - sz2 * u0_xi)
+
+        # interp the tying strain is the same tying strain ety => gty for beam
+        # transform tying strain to local coords
+        e0ty = 2 * XdinvT[0,0] * ety
+
+        # evaluate the strain
+        # print(f"{u0x=} {d1x=} {d2x=} {e0ty=}")
+        strain = np.array([u0x[0,0], 0.5 * (d1x[2] - d2x[1]), d1x[0], d2x[0], e0ty[0], e0ty[1]])
+
+        # evalate the stress (assume no cross-couplings since centered at centroid here)
+        stress = np.array([
+            CK[0] * strain[0], # CK[0] = E * A
+            CK[1] * strain[1], # CK[1] = G * J
+            CK[2] * strain[2], # CK[2] = E * Iz
+            CK[3] * strain[3], # CK[3] = E * Iy
+            CK[4] * strain[4], # CK[4] = ky * G * A
+            CK[5] * strain[5], # CK[5] = kz * G * A
+        ])
+
+        # now second strain computation ----------------------
+
+        u0_xi = 0.5 * (qvars2[6:] - qvars2[:6])
+        u0_xi = u0_xi[:3]
+        d01 = d1_2[:3] * basis_fcn(0, xi) + d1_2[3:] * basis_fcn(1, xi)
+        d02 = d2_2[:3] * basis_fcn(0, xi) + d2_2[3:] * basis_fcn(1, xi)
+        d01_xi = 0.5 * (d1_2[3:] - d1_2[:3])
+        d02_xi = 0.5 * (d2_2[3:] - d2_2[:3])
+
+        X0 = xpts[:3] * basis_fcn(0, xi) + xpts[3:] * basis_fcn(1, xi)
+        X0_xi = 0.5 * (xpts[3:] - xpts[:3])
+        n1 = fn1[:3] * basis_fcn(0, xi) + fn1[3:] * basis_fcn(1, xi)
+        n2 = fn2[:3] * basis_fcn(0, xi) + fn2[3:] * basis_fcn(1, xi)
+        n1_xi = 0.5 * (fn1[3:] - fn1[:3])
+        n2_xi = 0.5 * (fn2[3:] - fn2[:3])
+
+        # normalize and get transform T matrix
+        t1 = X0_xi / norm3(X0_xi)
+        t2 = ref_axis - np.dot(t1, ref_axis) * t1
+        t2 /= norm3(t2)
+        t3 = np.cross(t1, t2)
+        T = np.array([list(t1), list(t2), list(t3)]).T
+        # print(f"{T=} {t1=} {t2=} {t3=}")
+
+        # compute additional matrices
+        Xd = np.array([list(X0_xi), list(n1), list(n2)]).T
+        Xdinv = np.linalg.inv(Xd)
+        detXd = np.linalg.det(Xd)
+        XdinvT = Xdinv @ T
+        # print(f"{u0_xi=} {d01=} {d02=}")
+        u0d = np.array([list(u0_xi), list(d01), list(d02)]).T
+        u0d_2 = u0d @ XdinvT
+        u0x = T.T @ u0d_2
+        e1 = np.array([1, 0, 0])
+        s0 = np.dot(np.dot(XdinvT, e1), e1)
+        sz1 = np.dot(np.dot(Xdinv, e1), n1_xi)
+        sz2 = np.dot(np.dot(Xdinv, e1), n2_xi)
+        # print(f"{s0=} {d01_xi=} {sz1=} {u0_xi=}")
+        d1x = s0 * np.dot(T.T, d01_xi - sz1 * u0_xi)
+        d2x = s0 * np.dot(T.T, d02_xi - sz2 * u0_xi)
+
+        # interp the tying strain is the same tying strain ety => gty for beam
+        # transform tying strain to local coords
+        e0ty = 2 * XdinvT[0,0] * ety
+
+        # evaluate the strain
+        # print(f"{u0x=} {d1x=} {d2x=} {e0ty=}")
+        strain2 = np.array([u0x[0,0], 0.5 * (d1x[2] - d2x[1]), d1x[0], d2x[0], e0ty[0], e0ty[1]])
+
+
+        # now compute strain energies (bidirectional product) ----------------
+        # ---------------------------------------------------       
+
+        Uenergy += 0.5 * detXd * np.dot(stress, strain2)
+    return Uenergy
+
+def get_vm_stress(
+    thick1:float, thick2:float,
+    xpts:np.ndarray, # 2 * 3 = 6 entries
+    qvars:np.ndarray, # 2 * 6 = 12 entries
+    ref_axis:np.ndarray, # 3 entries
+    CS:np.ndarray, # 4 entries for stress constitutive
+    rho_KS:float, # smoothing VM stress,
+    safety_factor:float,
+) -> np.ndarray: 
+
+    fn1, fn2 = get_beam_node_normals(N_BASIS, xpts, ref_axis)
+    d1 = compute_director(qvars, fn1)
+    d2 = compute_director(qvars, fn2)
+    ety = compute_tying_strains(xpts, fn1, fn2, qvars, d1, d2)
+
+    # similar code from strain energy here, but just at the center of the element
+    xi = 0.0
+
+    u0_xi = 0.5 * (qvars[6:] - qvars[:6])
+    u0_xi = u0_xi[:3]
+    d01 = d1[:3] * basis_fcn(0, xi) + d1[3:] * basis_fcn(1, xi)
+    d02 = d2[:3] * basis_fcn(0, xi) + d2[3:] * basis_fcn(1, xi)
+    d01_xi = 0.5 * (d1[3:] - d1[:3])
+    d02_xi = 0.5 * (d2[3:] - d2[:3])
+
+    X0 = xpts[:3] * basis_fcn(0, xi) + xpts[3:] * basis_fcn(1, xi)
+    X0_xi = 0.5 * (xpts[3:] - xpts[:3])
+    n1 = fn1[:3] * basis_fcn(0, xi) + fn1[3:] * basis_fcn(1, xi)
+    n2 = fn2[:3] * basis_fcn(0, xi) + fn2[3:] * basis_fcn(1, xi)
+    n1_xi = 0.5 * (fn1[3:] - fn1[:3])
+    n2_xi = 0.5 * (fn2[3:] - fn2[:3])
+
+    # normalize and get transform T matrix
+    t1 = X0_xi / norm3(X0_xi)
+    t2 = ref_axis - np.dot(t1, ref_axis) * t1
+    t2 /= norm3(t2)
+    t3 = np.cross(t1, t2)
+    T = np.array([list(t1), list(t2), list(t3)]).T
+    # print(f"{T=} {t1=} {t2=} {t3=}")
+
+    # compute additional matrices
+    Xd = np.array([list(X0_xi), list(n1), list(n2)]).T
+    Xdinv = np.linalg.inv(Xd)
+    detXd = np.linalg.det(Xd)
+    XdinvT = Xdinv @ T
+    # print(f"{u0_xi=} {d01=} {d02=}")
+    u0d = np.array([list(u0_xi), list(d01), list(d02)]).T
+    u0d_2 = u0d @ XdinvT
+    u0x = T.T @ u0d_2
+    e1 = np.array([1, 0, 0])
+    s0 = np.dot(np.dot(XdinvT, e1), e1)
+    sz1 = np.dot(np.dot(Xdinv, e1), n1_xi)
+    sz2 = np.dot(np.dot(Xdinv, e1), n2_xi)
+    # print(f"{s0=} {d01_xi=} {sz1=} {u0_xi=}")
+    d1x = s0 * np.dot(T.T, d01_xi - sz1 * u0_xi)
+    d2x = s0 * np.dot(T.T, d02_xi - sz2 * u0_xi)
+
+    # interp the tying strain is the same tying strain ety => gty for beam
+    # transform tying strain to local coords
+    e0ty = 2 * XdinvT[0,0] * ety
+
+    # evaluate the strain
+    # print(f"{u0x=} {d1x=} {d2x=} {e0ty=}")
+    strain = np.array([u0x[0,0], 0.5 * (d1x[2] - d2x[1]), d1x[0], d2x[0], e0ty[0], e0ty[1]])
+
+    # get material constants
+    E = CS[0]
+    kyG = CS[1]
+    kzG = CS[2]
+    ys = CS[3]
+
+    vm_fails = np.zeros((4,), dtype=np.complex128)
+    ct = 0
+    for sign1 in [-1, 1]:
+        for sign2 in [-1, 1]:
+            # eval all four corners here with sx0
+            sx0 = E * strain[0]
+            sx0 += sign1 *  E * strain[3] * thick2 / 2.0 # My * z / Iy
+            sx0 += sign2 * E * strain[2] * thick1 / 2.0 # Mz * y / Iz
+
+            # transverse shear stresses
+            ts1 = kyG * strain[4]
+            ts2 = kzG * strain[5]
+            vm_stress = np.sqrt(sx0**2 + 3.0 * (ts1**2 + ts2**2))
+            # print(f"{vm_stress=} {ys=} {safety_factor=}")
+            vm_fails[ct] = vm_stress / ys * safety_factor
+            ct += 1
+
+    # now do KS-smoothing on the vm stress
+    ks_vm_stress = np.log(np.sum(np.exp(rho_KS * vm_fails))) / rho_KS
+    return ks_vm_stress
+
 def get_kinetic_energy(
     xpts:np.ndarray, # 2 * 3 = 6 entries
     qvars:np.ndarray, # 2 * 6 = 12 entries

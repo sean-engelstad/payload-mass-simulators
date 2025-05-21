@@ -22,10 +22,17 @@ def get_CM(rho, A, Iy, Iz):
         rho * Iy,
     ])
 
+def get_stress_constitutive(material:Material):
+    # get four constitutive values needed for VM stress
+    kyG = material.k_s * material.G
+    kzG = material.k_s * material.G
+    return np.array([material.E, kyG, kzG, material.ys])
+
 def get_constitutive_data(material:Material, t1, t2):
     A = t1 * t2
-    Iy = t1**3 * t2 / 12.0
-    Iz = t2**3 * t1 / 12.0
+    # t1 for y and t2 for z in local coords
+    Iy = t2**3 * t1 / 12.0 # Iy is for bending in xz plane
+    Iz = t1**3 * t2 / 12.0 # Iz is for bending in xy plane plane
     J = Iy + Iz
 
     CK = get_CK(material.E, A, material.G, J, Iy, Iz)

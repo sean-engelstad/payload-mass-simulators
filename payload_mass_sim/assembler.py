@@ -8,11 +8,16 @@ from .tree_data import TreeData
 from .material import Material
 from ._TS_elem import *
 from scipy.linalg import eigh
+from .write_vtk import *
+from .inertial_data import *
 
 class BeamAssembler:
-    def __init__(self, material:Material, tree:TreeData):
+    def __init__(self, material:Material, tree:TreeData, inertial_data:InertialData=None, rho_KS:float=10.0, safety_factor:float=1.5):
         self.material = material
         self.tree = tree
+        self.inertial_data = inertial_data
+        self.rho_KS = rho_KS
+        self.safety_factor = safety_factor
 
         # some important metadata quantities
         self.nnodes = self.tree.nnodes
@@ -39,6 +44,9 @@ class BeamAssembler:
         self.freqs = None
         self.eigvecs = None
         self.Fr = None
+        self.ur = None
+        self.u = None
+        self.stresses = None
 
         self.freq_err_hist = []
         self.freq_hist = []
@@ -109,6 +117,123 @@ class BeamAssembler:
         # plt.imshow(self.Kr)
         # plt.show()
 
+    def _build_inertial_loads(self, x):
+        # TODO : compute inertial loads n * rho * g * A on different parts of the structure..
+        assert(self.inertial_data)
+
+        # assuming constant load factor for now, not differentiated
+        mass = self.get_mass(x)     
+        nelem_per_comp = self.tree.nelem_per_comp
+        n = self.inertial_data.get_load_factor(mass)
+        inertial_direc = self.inertial_data.inertial_direction
+        rho = self.material.rho
+        g = self.inertial_data.accel_grav
+
+        # assemble global forces
+        F = np.zeros((self.ndof,)) # global force vector
+
+        # loop over components and elements
+        for icomp in range(self.ncomp):
+            # local des vars in this component
+            L = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # compute element length Le
+            first_elem = nelem_per_comp * icomp
+            nodes = self.elem_conn[first_elem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            Le = np.linalg.norm(xpt2 - xpt1)
+
+            # compute distr load mag based on element vs inertial orientation
+            # and the base distr load mag
+            A = t1 * t2
+            distr_load_mag = rho * g * A
+            nodal_load_mag = distr_load_mag * Le # total load on beam section
+            # print(f"{nodal_load_mag=}")
+
+            # don't actually need beam direc, just need to compute comp x,y,z parts of distributed load
+            # compute element nodal loads
+            Felem = np.zeros((12,))
+            for i in range(3):
+                cart_direc = np.zeros((3,))
+                Felem[i] = 0.5 * nodal_load_mag * inertial_direc[i]
+                Felem[i+6] = Felem[i]
+
+            # now do assembly step for each element
+            start = nelem_per_comp * icomp
+            for ielem in range(start, start + nelem_per_comp):
+                elem_nodes = self.elem_conn[ielem]
+                # print(f"{ielem=} {elem_nodes=}")
+                glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
+                F[glob_dof] += Felem
+
+        # compute reduced forces from bcs
+        # assuming we don't need to redefine self.keep_dof, defined in _build_dense_matrices
+        self.Fr = F[self.keep_dof]
+        return
+
+    def _get_stresses_for_visualization(self, x):
+        """ just for visualization, not VM stresses for optimization """
+        # get new xpts
+        lengths = x[0::3]
+        self.xpts = self.tree.get_xpts(lengths)
+        nelem_per_comp = self.tree.nelem_per_comp
+
+        # init matrices
+        self.stresses = np.zeros((self.ndof,))
+        weights = np.zeros((self.ndof,))
+
+        # loop over components and elements
+        for icomp in range(self.ncomp):
+            # local des vars in this component
+            L = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # determine element orientation for first elem in comp group
+            first_elem = nelem_per_comp * icomp
+            nodes = self.elem_conn[first_elem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            dxpt = xpt2 - xpt1
+            orient_ind = np.argmax(np.abs(dxpt))
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+
+            # set element xpts (for one element in straight comp, all same Kelem + Melem then)
+            elem_xpts = np.concatenate([xpt1, xpt2], axis=0)
+
+            # get the Kelem and Melem for this component
+            Cfull = get_constitutive_data(self.material, t1, t2)
+            CK = Cfull[:6]
+            CM = Cfull[6:]
+
+            start = nelem_per_comp * icomp
+            for ielem in range(start, start + nelem_per_comp):
+                elem_nodes = self.elem_conn[ielem]
+                glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
+
+                # all 12 dof from linear static solution
+                uelem = self.u[glob_dof]
+                midpt_elem_stresses = np.real( get_stresses(elem_xpts, uelem, ref_axis, CK) )
+
+                # just copy the stresses here 
+
+                # add 50% to each of adjacent nodes (6,) => (12,) array split up
+                full_elem_stresses = np.zeros((12,))
+                for i in range(2):
+                    full_elem_stresses[6*i:(6*i+6)] += midpt_elem_stresses
+
+                self.stresses[glob_dof] += full_elem_stresses
+                weights[glob_dof] += np.ones((12,))
+            
+        # now normalize global stresses by weights (this way we get stresses at junction nodes better, not just /2.0 works)
+        self.stresses /= weights
+        return
+
     def get_frequencies(self, x, nmodes=5):
 
         # update xpts and assemble Kr, Mr matrices
@@ -134,19 +259,87 @@ class BeamAssembler:
         #     V+= (x[3*icomp+2]*x[3*icomp+1]*x[3*icomp]) # t2*t1*l
         return rho*np.sum(Varray)
 
-    def _solve_static(self, x):
+    def solve_static(self, x):
         # TODO : add in _build_inertial_loads again..
         # computes Kr * ur = Fr in reduced system
         self._build_dense_matrices(x)
         self._build_inertial_loads(x)
 
+        print("Solving linear static problem:")
+        start_time = time.time()
         self.ur = np.linalg.solve(self.Kr, self.Fr)
+        dt = time.time() - start_time
+        print(f"\tsolved static in {dt:.4f} seconds.")
+
         self.u = np.zeros((self.ndof,))
         self.u[self.keep_dof] = self.ur[:]
-        print(F"{self.u=}")
+        # print(F"{self.u=}")
+
+        self._get_stresses_for_visualization(x)
 
         # now plot the disps of linear static?
         return self.u
+
+    def _get_vm_fail_vec(self, x):
+        # get new xpts
+        lengths = x[0::3]
+        self.xpts = self.tree.get_xpts(lengths)
+        nelem_per_comp = self.tree.nelem_per_comp
+
+        # init matrices
+        vm_fail_vec = np.zeros((self.nelems,), dtype=np.complex128)
+        self.vm_nodal = np.zeros((self.nnodes,))
+        weights = np.zeros((self.nnodes,))
+
+        # loop over components and elements
+        for icomp in range(self.ncomp):
+            # local des vars in this component
+            L = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # determine element orientation for first elem in comp group
+            first_elem = nelem_per_comp * icomp
+            nodes = self.elem_conn[first_elem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            dxpt = xpt2 - xpt1
+            orient_ind = np.argmax(np.abs(dxpt))
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+
+            # set element xpts (for one element in straight comp, all same Kelem + Melem then)
+            elem_xpts = np.concatenate([xpt1, xpt2], axis=0)
+
+            # get the Kelem and Melem for this component
+            CS = get_stress_constitutive(self.material)
+
+            start = nelem_per_comp * icomp
+            for ielem in range(start, start + nelem_per_comp):
+                elem_nodes = self.elem_conn[ielem]
+                glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
+
+                # all 12 dof from linear static solution
+                uelem = self.u[glob_dof]
+                vm_fail_index = get_vm_stress(
+                    t1, t2, elem_xpts, 
+                    uelem, ref_axis, CS, 
+                    self.rho_KS, self.safety_factor
+                )
+                vm_fail_vec[ielem] = vm_fail_index
+                self.vm_nodal[elem_nodes] += np.real(vm_fail_index)
+                weights[elem_nodes] += 1.0
+
+        self.vm_nodal /= weights # normalize for visualization
+
+        return vm_fail_vec
+
+    def get_failure_index(self, x):
+        """ just for visualization, not VM stresses for optimization """
+        vm_fail_vec = self._get_vm_fail_vec(x)
+        ks_fail_index = np.log(np.sum(np.exp(self.rho_KS * vm_fail_vec))) / self.rho_KS
+        return ks_fail_index
 
     # SENSITIVITIES --------------------------
 
@@ -163,7 +356,7 @@ class BeamAssembler:
     def get_frequency_gradient(self, x, imode):
         # get the DV gradient of natural frequencies for optimization
         freq = self.freqs[imode]
-        num = self._get_dKdx_term(x, imode) - freq**2 * self._get_dMdx_term(x, imode)
+        num = self._get_dKdx_freq_term(x, imode) - freq**2 * self._get_dMdx_term(x, imode)
         den = self._get_modal_mass(imode) * 2 * freq
         return num / den
 
@@ -171,6 +364,23 @@ class BeamAssembler:
         # phi^T * M * phi modal mass for single eigenmode with already computed M matrix
         phi_red = self.eigvecs[:,imode]
         return np.dot(np.dot(self.Mr, phi_red), phi_red)
+
+    def get_failure_index_gradient(self, x):
+        """ just for visualization, not VM stresses for optimization """
+
+        dfail_du = self._get_dfail_du(x)
+        dfail_du_red = dfail_du[self.keep_dof]
+        self.psir = np.linalg.solve(self.Kr, -dfail_du_red)
+
+        self.psi = np.zeros((self.ndof,))
+        self.psi[self.keep_dof] = self.psir[:]
+
+        dfail_dx = self._get_dfail_dx(x)
+        dfail_dx += self._get_dKdx_static_term(x)
+        dfail_dx -= self._get_inertial_dRdx_term(x)
+        # why we need negative sign here?
+        dfail_dx *= -1.0
+        return dfail_dx
 
     def freq_FD_test(self, x, imode, h=1e-3):
         p_vec = np.random.rand(self.num_dvs)
@@ -191,6 +401,46 @@ class BeamAssembler:
         HC_val = np.dot(mass_grad, p_vec)
         print(f"mass FD test: {FD_val=} {HC_val=}")
         return
+
+    def dfail_dx_FD_test(self, x, h=1e-5):
+        # test dfail/dx grad, with u fixed (so only partial not total derivative here)
+        p_vec = np.random.rand(self.num_dvs)
+        self.solve_static(x)
+        fail0 = self.get_failure_index(x)
+        fail_grad = self._get_dfail_dx(x)
+        fail1 = self.get_failure_index(x + p_vec * h)
+        FD_val = np.real( (fail1 - fail0) / h )
+        HC_val = np.dot(fail_grad, p_vec)
+        print(f"dfail/dx partial grad FD test: {FD_val=} {HC_val=}")
+        return
+
+    def dfail_du_FD_test(self, x, h=1e-5):
+        p_vec = np.random.rand(self.ndof)
+        self.u = np.random.rand(self.ndof) * 1e-3
+        fail0 = self.get_failure_index(x)
+        fail_grad = self._get_dfail_du(x)
+        self.u += p_vec * h
+        fail1 = self.get_failure_index(x)
+        FD_val = np.real( (fail1 - fail0) / h )
+        HC_val = np.dot(fail_grad, p_vec)
+        print(f"dfail/du partial grad FD test: {FD_val=} {HC_val=}")
+        return
+
+    def fail_index_FD_test(self, x, h=1e-5):
+        # test dfail/dx grad, with u fixed (so only partial not total derivative here)
+        p_vec = np.random.rand(self.num_dvs)
+        self.solve_static(x)
+        fail0 = self.get_failure_index(x)
+        fail_grad = self.get_failure_index_gradient(x)
+        # fail_grad = self._get_dfail_dx(x)
+
+        # update solve of u(x) so we account for du/dx or adjoint term
+        self.solve_static(x + p_vec * h)
+        fail1 = self.get_failure_index(x + p_vec * h)
+        FD_val = np.real( (fail1 - fail0) / h )
+        HC_val = np.dot(fail_grad, p_vec)
+        print(f"dfail/dx total grad FD test: {FD_val=} {HC_val=}")
+        return
     
     def dKdx_FD_test(self, x, imode, h=1e-4):
         p_vec = np.random.rand(self.num_dvs)
@@ -199,7 +449,7 @@ class BeamAssembler:
         self.get_frequencies(x)
         Kr0 = self.Kr.copy()
         phi = self.eigvecs[:,imode].copy()
-        dKrdx_grad = self._get_dKdx_term(x, imode)
+        dKrdx_grad = self._get_dKdx_freq_term(x, imode)
         # print(F"{dKrdx_grad=}")
         # print(f"{phi[:12]=}")
         self.get_frequencies(x + p_vec * h)
@@ -214,6 +464,31 @@ class BeamAssembler:
         FD_val = np.dot(np.dot(dKr_dx_p, phi), phi)
         HC_val = np.dot(p_vec, dKrdx_grad)
         print(f"dK/dx FD test: {FD_val=} {HC_val=}")
+        return
+
+    def dKdx_FD_static_test(self, x, h=1e-4):
+        p_vec = np.random.rand(self.num_dvs)
+        # p_vec = np.zeros((self.num_dvs,))
+        # p_vec[2] = 1.0 # length good now, t1 + t2 derivs fail
+        self.solve_static(x)
+        self.get_failure_index_gradient(x)
+        Kr0 = self.Kr.copy()
+        psir = self.psir.copy()
+        ur = self.ur.copy()
+        dKrdx_grad = self._get_dKdx_static_term(x)
+
+        self.solve_static(x + p_vec * h)
+        Kr2 = self.Kr.copy()
+        
+        dKr_dx_p = (Kr2 - Kr0) / h
+        # plt.imshow(dKr_dx_p)
+        # plt.show()
+
+        # print(F"{dKr_dx_p=}")
+        # print(F"{np.diag(dKr_dx_p)=}")
+        FD_val = np.dot(np.dot(dKr_dx_p, psir), ur)
+        HC_val = np.dot(p_vec, dKrdx_grad)
+        print(f"dK/dx static FD test: {FD_val=} {HC_val=}")
         return
     
     def dMdx_FD_test(self, x, imode, h=1e-5):
@@ -233,7 +508,307 @@ class BeamAssembler:
         print(f"dM/dx FD test: {FD_val=} {HC_val=}")
         return
 
-    def _get_dKdx_term(self, x, imode):
+    def _get_dfail_dx(self, x):
+        # partial derivatives / gradient of failure index with respect to DVs\
+        fail_grad = np.zeros((3 * self.ncomp,))
+
+        lengths = x[0::3]
+        self.xpts = self.tree.get_xpts(lengths)
+        nelem_per_comp = self.tree.nelem_per_comp
+
+        # KS backprop states
+        vm_fail_vec = self._get_vm_fail_vec(x)
+        ks_sum = np.sum(np.exp(self.rho_KS * vm_fail_vec))
+
+        # now loop over each component computing partials --------------
+
+        # loop over components and elements
+        for icomp in range(self.ncomp):
+            # local des vars in this component
+            L = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # determine element orientation for first elem in comp group
+            first_elem = nelem_per_comp * icomp
+            nodes = self.elem_conn[first_elem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            dxpt = xpt2 - xpt1
+            orient_ind = np.argmax(np.abs(dxpt))
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+
+            # set element xpts (for one element in straight comp, all same Kelem + Melem then)
+            elem_xpts = np.concatenate([xpt1, xpt2], axis=0)
+            elem_xpts0 = elem_xpts.copy()
+
+            # get the Kelem and Melem for this component
+            CS = get_stress_constitutive(self.material)
+
+            start = nelem_per_comp * icomp
+            for ielem in range(start, start + nelem_per_comp):
+                elem_nodes = self.elem_conn[ielem]
+                glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
+
+                # all 12 dof from linear static solution
+                uelem = self.u[glob_dof]
+                vm_fail_index = get_vm_stress(
+                    t1, t2, elem_xpts, 
+                    uelem, ref_axis, CS, 
+                    self.rho_KS, self.safety_factor
+                )
+
+                # jacobian of vm fail index => global fail index
+                ks_fail_jac = np.exp(self.rho_KS * vm_fail_index) / ks_sum
+
+                # compute dvm/dL term ----------------
+                h = 1e-30 # complex-step method on first order
+                zero = np.array([0.0]*3)
+                pert_xpts = np.concatenate([zero, np.abs(dxpt) / L], axis=0)
+                dvm_dL = np.imag(get_vm_stress(
+                    t1, t2, elem_xpts0 + pert_xpts * 1j * h,
+                    uelem, ref_axis, CS,
+                    self.rho_KS, self.safety_factor,
+                )) / h * 2.0
+                fail_grad[3*icomp] += dvm_dL * np.real(ks_fail_jac)
+
+                # compute dvm/dt1 term ----------------
+                dvm_dt1 = np.imag(get_vm_stress(
+                    t1 + h * 1j, t2, elem_xpts0,
+                    uelem, ref_axis, CS,
+                    self.rho_KS, self.safety_factor,
+                )) / h * 2.0
+                fail_grad[3*icomp + 1] += dvm_dt1 * np.real(ks_fail_jac)
+
+                # compute dvm/dL term ----------------
+                dvm_dt2 = np.imag(get_vm_stress(
+                    t1, t2 + h * 1j, elem_xpts0,
+                    uelem, ref_axis, CS,
+                    self.rho_KS, self.safety_factor,
+                )) / h * 2.0
+                fail_grad[3*icomp + 2] += dvm_dt2 * np.real(ks_fail_jac)
+
+         # not sure why /2.0 here have 2.0 above thought that was right
+         # maybe because we add twice? also not sure why negative, but that mathces better
+        return fail_grad / 2.0 * -1.0
+
+    def _get_dfail_du(self, x):
+        # partial derivatives / gradient of failure index with respect to disp states
+        fail_gradu = np.zeros((self.ndof,))
+
+        lengths = x[0::3]
+        self.xpts = self.tree.get_xpts(lengths)
+        nelem_per_comp = self.tree.nelem_per_comp
+
+        # KS backprop states
+        vm_fail_vec = self._get_vm_fail_vec(x)
+        ks_sum = np.sum(np.exp(self.rho_KS * vm_fail_vec))
+
+        # now loop over each component computing partials --------------
+
+        # loop over components and elements
+        for icomp in range(self.ncomp):
+            # local des vars in this component
+            L = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # determine element orientation for first elem in comp group
+            first_elem = nelem_per_comp * icomp
+            nodes = self.elem_conn[first_elem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            dxpt = xpt2 - xpt1
+            orient_ind = np.argmax(np.abs(dxpt))
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+
+            # set element xpts (for one element in straight comp, all same Kelem + Melem then)
+            elem_xpts = np.concatenate([xpt1, xpt2], axis=0)
+
+            # get the Kelem and Melem for this component
+            CS = get_stress_constitutive(self.material)
+
+            start = nelem_per_comp * icomp
+            for ielem in range(start, start + nelem_per_comp):
+                elem_nodes = self.elem_conn[ielem]
+                glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
+
+                # all 12 dof from linear static solution
+                uelem = self.u[glob_dof]
+                vm_fail_index = get_vm_stress(
+                    t1, t2, elem_xpts, 
+                    uelem, ref_axis, CS, 
+                    self.rho_KS, self.safety_factor
+                )
+
+                # jacobian of vm fail index => global fail index
+                ks_fail_jac = np.exp(self.rho_KS * vm_fail_index) / ks_sum
+
+                # now compute dvm_fail/duelem at element level here
+                dvm_duelem = np.zeros((12,))
+                h = 1e-30
+                for i in range(12):
+                    pert_uelem = np.zeros((12,))
+                    pert_uelem[i] = 1.0
+                    dvm_duelem[i] = np.imag(get_vm_stress(
+                        t1, t2, elem_xpts, 
+                        uelem + pert_uelem * 1j * h, ref_axis, CS, 
+                        self.rho_KS, self.safety_factor
+                    )) / h * 2.0
+
+                fail_gradu[glob_dof] += dvm_duelem * np.real(ks_fail_jac)
+
+         # not sure why /2.0 here have 2.0 above thought that was right
+         # maybe because we add twice?
+        return fail_gradu / 2.0
+
+    def _get_dKdx_static_term(self, x):
+        # use trick to get psi^T * dK/dx * u
+        # uses strain energy bidirec term (since linear strains and quadratic U to get without forming Kelem)
+        dKdx_grad = np.zeros((3 * self.ncomp,))
+        nelem_per_comp = self.tree.nelem_per_comp
+
+        # get relevant eigenvector
+        phi_red = self.psir
+        phi = np.zeros((self.ndof,))
+        phi[self.keep_dof] = phi_red[:]
+
+        # loop over each component to get local DV derivs
+        for icomp in range(self.ncomp):
+            # local des vars in this component
+            L = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # prelim --------------
+            # get orient ind and ref axis
+            first_elem = nelem_per_comp * icomp
+            nodes = self.elem_conn[first_elem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            dxpt = xpt2 - xpt1
+            orient_ind = np.argmax(np.abs(dxpt))
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+            elem_xpts0 = np.concatenate([xpt1, xpt2], axis=0)
+
+            # initial const data
+            Cfull = get_constitutive_data(self.material, t1, t2)
+            CK = Cfull[:6]; CM = Cfull[6:]
+
+            # now do assembly step for each element -----
+            start = nelem_per_comp * icomp
+            for ielem in range(start, start + nelem_per_comp):
+                elem_nodes = self.elem_conn[ielem]
+                glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
+                phie = phi[glob_dof]
+                ue = self.u[glob_dof]
+
+                # compute dK/dL term ------------
+                h = 1e-30 # complex-step method on first order
+                zero = np.array([0.0]*3)
+                pert_xpts = np.concatenate([zero, np.abs(dxpt) / L], axis=0)
+                dKdx_grad[3*icomp] += np.imag(get_bidirec_strain_energy(
+                    elem_xpts0 + pert_xpts * 1j * h,
+                    phie, ue, ref_axis, CK
+                )) / h * 2.0
+
+                # compute dK/t1 term ------------
+                Cd1 = get_constitutive_data(self.material, t1 + h * 1j, t2)
+                dKdx_grad[3*icomp+1] += np.imag(get_bidirec_strain_energy(
+                    elem_xpts0,
+                    phie, ue, ref_axis,
+                    Cd1[:6]
+                )) / h * 2.0
+
+                # compute dK/t2 term ------------
+                Cd2 = get_constitutive_data(self.material, t1, t2 + h * 1j)
+                dKdx_grad[3*icomp+2] += np.imag(get_bidirec_strain_energy(
+                    elem_xpts0,
+                    phie, ue, ref_axis,
+                    Cd2[:6]
+                )) / h * 2.0
+        return dKdx_grad
+
+    def _get_inertial_dRdx_term(self, x):
+        # TODO : compute inertial loads n * rho * g * A on different parts of the structure..
+        assert(self.inertial_data)
+        # this inertial grad is <psi, dfext/dx> doesn't have neg sign on it
+        inertial_grad = np.zeros((3 * self.ncomp,))
+
+        # assuming constant load factor for now, not differentiated
+        mass = self.get_mass(x)     
+        nelem_per_comp = self.tree.nelem_per_comp
+        n = self.inertial_data.get_load_factor(mass)
+        inertial_direc = self.inertial_data.inertial_direction
+        rho = self.material.rho
+        g = self.inertial_data.accel_grav
+
+        # get static analysis adjoint vector for failure index
+        psi_red = self.psir
+        psi = np.zeros((self.ndof,))
+        psi[self.keep_dof] = psi_red[:]
+
+        # loop over components and elements
+        for icomp in range(self.ncomp):
+            # local des vars in this component
+            L = x[3*icomp]
+            t1 = x[3*icomp+1]
+            t2 = x[3*icomp+2]
+
+            # compute element length Le
+            first_elem = nelem_per_comp * icomp
+            nodes = self.elem_conn[first_elem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            Le = np.linalg.norm(xpt2 - xpt1)
+
+            # baseline load mag
+            A = t1 * t2
+            distr_load_mag = rho * g * A
+            nodal_load_mag = distr_load_mag * Le # total load on beam section
+
+            # baseline Felem
+            # don't actually need beam direc, just need to compute comp x,y,z parts of distributed load
+            # compute element nodal loads
+            Felem = np.zeros((12,))
+            for i in range(3):
+                cart_direc = np.zeros((3,))
+                Felem[i] = 0.5 * nodal_load_mag * inertial_direc[i]
+                Felem[i+6] = Felem[i]
+
+            # now we compute derivs (looping over each element on the fly)
+            # ---------------------
+
+            start = nelem_per_comp * icomp
+            for ielem in range(start, start + nelem_per_comp):
+                elem_nodes = self.elem_conn[ielem]
+                # print(f"{ielem=} {elem_nodes=}")
+                glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
+
+                # get element adjoint vector
+                psie = psi[glob_dof]
+
+                # first compute L deriv
+                dFelem_dL = Felem / L
+                inertial_grad[3*icomp] += np.dot(psie, dFelem_dL)
+
+                # second compute t1 deriv
+                dFelem_dt1 = Felem / t1
+                inertial_grad[3*icomp + 1] += np.dot(psie, dFelem_dt1)
+
+                # third compute t2 deriv
+                dFelem_dt2 = Felem / t2
+                inertial_grad[3*icomp + 2] += np.dot(psie, dFelem_dt2)
+
+        return inertial_grad
+
+    def _get_dKdx_freq_term(self, x, imode):
         # use trick to get phi^T * dK/dx * phi
         # namely find dU/dx at element level with Ue(phi,x) of ue^T * Ke * ue with ue = phi\
         dKdx_grad = np.zeros((3 * self.ncomp,))
@@ -370,6 +945,35 @@ class BeamAssembler:
         return dMdx_grad
 
     # PLOT UTILS -------------------------
+
+    def write_freq_to_vtk(self, nmodes:int, file_prefix:str=""):
+        """writes to vtk"""
+        for imode in range(nmodes):
+            # get full eigenmode shape
+            phi_r = self.eigvecs[:,imode]
+            phi = np.zeros((self.ndof,))
+            phi[self.keep_dof] = phi_r
+
+            write_beam_modes_to_vtk(
+                filename=f"{file_prefix}_mode{imode}.vtk", 
+                node_coords=np.reshape(self.xpts, newshape=(self.nnodes, 3)),
+                elements=np.reshape(np.array(self.elem_conn), newshape=(self.nelems, 2)),
+                mode_shapes=np.reshape(phi, newshape=(self.nnodes, 6)),
+            )
+        return
+
+    def write_static_to_vtk(self, file_prefix:str=""):
+        """writes to vtk"""
+
+        write_beam_static_to_vtk(
+            filename=f"{file_prefix}_static.vtk", 
+            node_coords=np.reshape(self.xpts, newshape=(self.nnodes, 3)), 
+            elements=np.reshape(np.array(self.elem_conn), newshape=(self.nelems, 2)), 
+            disps=np.reshape(self.u, newshape=(self.nnodes, 6)), 
+            stresses=np.reshape(self.stresses, newshape=(self.nnodes, 6)), # TODO
+            vm_stress=self.vm_nodal, # TODO
+        )
+        return
 
     def _plot_xpts(self, new_xpts, color):
         for ielem in range(self.nelems):
