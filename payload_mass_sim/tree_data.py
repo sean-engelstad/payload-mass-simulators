@@ -5,12 +5,14 @@ class TreeData:
             self, 
             tree_start_nodes:list, 
             tree_directions:list,
-            nelem_per_comp:int=5
+            nelem_per_comp:int=5,
+            ndvs_per_comp:int = 3
         ):
         assert len(tree_start_nodes) == len(tree_directions)
         self.tree_start_nodes = tree_start_nodes
         self.tree_directions = tree_directions
         self.nelem_per_comp = nelem_per_comp
+        self.ndvs_per_comp = ndvs_per_comp
 
         self.tree_xpts = None
         self.elem_conn = None
@@ -91,10 +93,13 @@ class TreeData:
         return np.array(xpts)
     
     def get_centroid(self, x, origin=None):
+        # TODO : Make this compatible with advanced 7 DV case
+
         #rho = self.material.rho
         rho = 1
-        lengths = np.array([x[3*icomp] for icomp in range(self.ncomp)])
-        Varray = np.array([x[3*icomp+2]*x[3*icomp+1]*x[3*icomp] for icomp in range(self.ncomp)])
+        ndv = self.ndvs_per_comp
+        lengths = np.array([x[ndv*icomp] for icomp in range(self.ncomp)])
+        Varray = np.array([x[ndv*icomp+2]*x[ndv*icomp+1]*x[ndv*icomp] for icomp in range(self.ncomp)])
 
         lengths_0 = lengths.copy()
         self.get_xpts(lengths_0)

@@ -4,3 +4,4 @@ from .assembler import *
 from .tree_data import *
 from .material import *
 from .inertial_data import *
+from .assembler_v2 import *
