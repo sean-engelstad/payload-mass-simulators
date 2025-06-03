@@ -1,7 +1,7 @@
 import numpy as np
 import pyvista as pv
 
-def write_beam_modes_to_vtk(filename, node_coords, elements, mode_shapes=None, thicknesses=None):
+def write_beam_modes_to_vtk(filename, node_coords, elements, mode_shapes=None, thicknesses=None, nonstruct_masses=None):
     """
     Write a beam structure with beam elements to a VTK file.
 
@@ -38,10 +38,13 @@ def write_beam_modes_to_vtk(filename, node_coords, elements, mode_shapes=None, t
         poly.point_data["t1"] = thicknesses[:, 0]
         poly.point_data["t2"] = thicknesses[:, 1]
 
+    if nonstruct_masses is not None:
+        poly.point_data["M"] = nonstruct_masses
+
     poly.save(filename)
     # print(f"Saved beam structure with mode shapes to {filename}")
 
-def write_beam_static_to_vtk(filename, node_coords, elements, disps, stresses=None, vm_stress=None, thicknesses=None):
+def write_beam_static_to_vtk(filename, node_coords, elements, disps, stresses=None, vm_stress=None, thicknesses=None, nonstruct_masses=None):
     """
     Write a static beam solution to a VTK file.
 
@@ -92,6 +95,9 @@ def write_beam_static_to_vtk(filename, node_coords, elements, disps, stresses=No
             raise ValueError("thicknesses must be of shape (N, 2)")
         poly.point_data["t1"] = thicknesses[:, 0]
         poly.point_data["t2"] = thicknesses[:, 1]
+
+    if nonstruct_masses is not None:
+        poly.point_data["M"] = nonstruct_masses
 
     poly.save(filename)
     # print(f"Saved static beam solution to {filename}")

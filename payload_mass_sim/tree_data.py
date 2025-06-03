@@ -410,7 +410,7 @@ class TreeData:
             zv = [xpt1[2], xpt2[2]]
             plt.plot(xv, yv, zv, linewidth=2)
         # plt.show()
-        plt.savefig("_modal/" + filename, dpi=400)
+        plt.savefig(filename, dpi=400)
         # exit()
 
     def plot_mesh_compare(self, xpts1, xpts2, filename="mesh-compare.png"):
@@ -426,5 +426,5 @@ class TreeData:
                 zv = [xpt1[2], xpt2[2]]
             plt.plot(xv, yv, zv, linewidth=2)
         # plt.show()
-        plt.savefig("_modal/" + filename, dpi=400)
+        plt.savefig(filename, dpi=400)
         # exit()

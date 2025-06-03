@@ -54,6 +54,7 @@ class BeamAssemblerAdvanced:
         self.u = None
         self.stresses = None
         self.thicknesses = None
+        self.nonstruct_masses = None
 
         self.freq_err_hist = []
         self.freq_hist = []
@@ -378,6 +379,64 @@ class BeamAssemblerAdvanced:
         # now normalize global stresses by weights (this way we get stresses at junction nodes better, not just /2.0 works)
         self.thicknesses /= weights
         return
+    
+    def _get_nonstruct_masses_for_visualization(self, x):
+        """get nodal thicknesses for visualization"""
+        # get new xpts
+        lengths = x[0::7]
+        self.xpts = self.tree.get_xpts(lengths)
+        nelem_per_comp = self.tree.nelem_per_comp
+
+        # init matrices for to hold mass value and location
+        self.nonstruct_masses = np.zeros((self.nnodes,))
+        weights = np.ones((self.nnodes,)) * 1e-12
+
+        # loop over components and elements
+        for icomp in range(self.ncomp):
+            # local des vars in this component
+            Mmass = x[7*icomp+5]
+            mx = x[7*icomp+6]
+
+            # determine element orientation for first elem in comp group
+            first_elem = nelem_per_comp * icomp
+            nodes = self.elem_conn[first_elem]
+            node1 = nodes[0]; node2 = nodes[1]
+            xpt1 = self.xpts[3*node1:3*node1+3]; xpt2 = self.xpts[3*node2:3*node2+3]
+            dxpt = xpt2 - xpt1
+            orient_ind = np.argmax(np.abs(dxpt))
+            rem_orient_ind = np.array([_ for _ in range(3) if not(_ == orient_ind)])
+            ref_axis = np.zeros((3,))
+            ref_axis[rem_orient_ind[0]] = 1.0
+
+            # set element xpts (for one element in straight comp, all same Kelem + Melem then)
+            elem_xpts = np.concatenate([xpt1, xpt2], axis=0)
+
+            # add lumped mass.. in element which now contains the beam
+            start = nelem_per_comp * icomp
+            ielem = int(start + np.floor(mx * nelem_per_comp))
+            elem_nodes = self.elem_conn[ielem]
+            glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
+            rows, cols = np.ix_(glob_dof, glob_dof)
+            xi_start = mx % (1.0/nelem_per_comp)
+            xi_elem = xi_start * nelem_per_comp
+            Mi = Mmass * (1-xi_elem); Mf = Mmass * xi_elem
+            Melem_lumped = np.diag([Mi]*6 + [Mf]*6) / 2.0
+
+            for ielem2 in range(start, start+nelem_per_comp):
+                if ielem2 == ielem:
+                    elem_nodes = self.elem_conn[ielem]
+                    node1 = elem_nodes[0]
+                    node2 = elem_nodes[1]
+                    
+                    # add Mmass in proprtion to each node
+                    self.nonstruct_masses[node1] += Mi
+                    self.nonstruct_masses[node2] += Mf
+                    weights[node1] += 1.0
+                    weights[node2] += 1.0
+            
+        # now normalize global stresses by weights (this way we get stresses at junction nodes better, not just /2.0 works)
+        self.nonstruct_masses /= weights
+        return
 
     def get_frequencies(self, x, nmodes=5):
 
@@ -403,6 +462,7 @@ class BeamAssemblerAdvanced:
             # print(f"{dt_assembly=} {dt_solve=}")
 
         self._get_thicknesses_for_visualization(x)
+        self._get_nonstruct_masses_for_visualization(x)
 
         # get freqs from omega^2 eigvals
         self.freqs = np.sqrt(eigvals)
@@ -1400,7 +1460,8 @@ class BeamAssemblerAdvanced:
                 node_coords=np.reshape(self.xpts, newshape=(self.nnodes, 3)),
                 elements=np.reshape(np.array(self.elem_conn), newshape=(self.nelems, 2)),
                 mode_shapes=np.reshape(phi, newshape=(self.nnodes, 6)),
-                thicknesses=np.reshape(self.thicknesses, newshape=(self.nnodes,2))
+                thicknesses=np.reshape(self.thicknesses, newshape=(self.nnodes,2)),
+                nonstruct_masses=self.nonstruct_masses,
             )
         return
 
@@ -1414,7 +1475,8 @@ class BeamAssemblerAdvanced:
             disps=np.reshape(self.u, newshape=(self.nnodes, 6)), 
             stresses=np.reshape(self.stresses, newshape=(self.nnodes, 6)), # TODO
             vm_stress=self.vm_nodal, # TODO
-            thicknesses=np.reshape(self.thicknesses, newshape=(self.nnodes,2))
+            thicknesses=np.reshape(self.thicknesses, newshape=(self.nnodes,2)),
+            nonstruct_masses=self.nonstruct_masses,
         )
         return
 

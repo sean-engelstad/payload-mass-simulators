@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # directions [0,1,2,3,4,5] equiv to x-,x+,y-,y+,z-,z+
 
     # base and level 1
-    init_design = loc_dv_list(0.3) * 9
+    init_design = loc_dv_list(0.3, 3e-2) * 9
     tree_start_nodes = [0] + [1]*4 + [2,3,4,5]
     tree_directions = [5] + [0,1,2,3] + [5]*4
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     num_dvs = init_design.shape[0]
     inertial_data = InertialData([1, 0, 0])
 
-    beam3d = BeamAssemblerAdvanced(material, tree, inertial_data, rho_KS=3.0)
+    beam3d = BeamAssemblerAdvanced(material, tree, inertial_data, rho_KS=10.0)
 
     # test(beam3d, init_design, demo=True, deriv=False)
 
@@ -102,6 +102,7 @@ if __name__ == "__main__":
     #target_eigvals = np.array([24.3, 29.4, 99.5, 173.6, 1, 1])
 
     xarr = init_design
+    beam3d.init_total_err = np.inf
 
     def get_functions(x_dict):
         xlist = x_dict["vars"]
@@ -109,30 +110,42 @@ if __name__ == "__main__":
 
         # print(f"{xarr=}")
         funcs = {}
+        total_norm_err = 0.0
 
         if args.freq:
             freqs = beam3d.get_frequencies(xarr)
             for imode in range(nmodes):
                 funcs[f'freq{imode}'] = freqs[imode]
+                total_norm_err += np.abs((freqs[imode] - target_eigvals[imode]) / target_eigvals[imode])
 
         if args.mass:
             mass = beam3d.get_mass(xarr)
             funcs['mass'] = mass
+            total_norm_err += np.abs(mass - target_mass) / target_mass
         
         if args.cg:
             centroid = tree.get_centroid(xarr)
             for i in range(3):
                 funcs[f'centroid{i}'] = centroid[i]
+                total_norm_err += np.abs((centroid[i] - target_centroid[i]) / target_centroid[i])
 
         if args.failure:
             beam3d.solve_static(xarr)
-            fail_index = beam3d.get_failure_index(xarr)
+            fail_index = np.real( beam3d.get_failure_index(xarr) )
+            print(f"{fail_index=}")
             funcs['failure'] = fail_index
+            total_norm_err += (fail_index - 1) if fail_index > 1 else 0.0
+
+        # print(f"{total_norm_err=}")
+        if beam3d.init_total_err == np.inf:
+            beam3d.init_total_err = total_norm_err
 
         funcs['dummyobj'] = 0.0
 
         # writeout a current opt-status.txt file
         hdl = open(f"{args.output}/opt-status.txt", mode='w')
+        hdl.write(f"init-total-err {beam3d.init_total_err:.4e}\n")
+        hdl.write(f"curr-total-err {total_norm_err:.4e}\n\n")
         hdl.write("funcs:\n")
         funcs_keys = list(funcs.keys())
         for i,key in enumerate(funcs_keys):
@@ -155,20 +168,15 @@ if __name__ == "__main__":
         dv_types = ["L", "t1i", "t1f", "t2i", "t2f", "Mmass", "mx"]
         for i in range(tree.ncomp):
             compstr = f"0{i}" if i < 10 else f"{i}"
-            hdl.write(f"comp-{compstr}: ")
+            hdl.write(f"\tcomp-{compstr}: ")
             for j in range(7):
                 hdl.write(f"{dv_types[j]} {xarr[7*i+j]:.3e}, ")
             hdl.write("\n")
         hdl.close()
 
-        # RMS frequency errors?
-        freqs4 = freqs[:4]
-        freq_err = np.linalg.norm(freqs4 - target_eigvals) / np.linalg.norm(target_eigvals)
-        beam3d.freq_err_hist += [freq_err]
-
-        beam3d.freq_hist += [list(freqs4)]
-        # print(f"{beam3d.freq_hist=}")
-        # exit()
+        beam3d.freq_err_hist += [total_norm_err]
+        if args.freq:
+            beam3d.freq_hist += [list(freqs[:4])]
 
         return funcs, False
 
@@ -177,9 +185,6 @@ if __name__ == "__main__":
         xarr = np.array([float(_) for _ in xlist])
 
         sens = {}
-
-        funcs = {}
-        funcs['dummyobj'] = 0.0
 
         if args.freq:
             for imode in range(nmodes):
@@ -198,6 +203,8 @@ if __name__ == "__main__":
 
         if args.failure:
             fail_index_grad = beam3d.get_failure_index_gradient(xarr)
+            # print(f"{fail_index_grad=}")
+            # exit()
             sens['failure'] = { 'vars' : fail_index_grad }
 
         return sens, False
@@ -243,7 +250,7 @@ if __name__ == "__main__":
             "Summary frequency": 10000000,
             "Major feasibility tolerance": 1e-6,
             "Major optimality tolerance": 1e-4,
-            "Verify level": -1,
+            "Verify level": 0, #-1,
             "Major iterations limit": 1000, #1000, # 1000,
             "Minor iterations limit": 150000000,
             "Iterations limit": 100000000,
@@ -293,27 +300,33 @@ if __name__ == "__main__":
     plt.plot(iterations, freq_err_hist, 'k')
     plt.margins(x=0.05, y=0.05)
     plt.xlabel("Iterations")
-    plt.ylabel("Freq Error")
+    plt.ylabel("Total Max Error")
     plt.yscale('log')
-    plt.savefig(f"{args.output}/freq-err-hist.png", dpi=400)
+    plt.savefig(f"{args.output}/max-err-hist.png", dpi=400)
 
-    freq_hist = beam3d.freq_hist
-    plt.close('all')
-    plt.style.use(niceplots.get_style())
-    plt.figure(figsize=(10,6))
-    # colors = plt.cm.Cu(np.linspace(0.0, 1.0, 4))
-    # colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
-    colors = plt.cm.plasma(np.linspace(0.0, 1.0, 4))
+    if args.freq:
+        freq_hist = beam3d.freq_hist
+        plt.close('all')
+        plt.style.use(niceplots.get_style())
+        plt.figure(figsize=(10,6))
+        # colors = plt.cm.Cu(np.linspace(0.0, 1.0, 4))
+        # colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+        colors = plt.cm.plasma(np.linspace(0.0, 1.0, 4))
 
-    for i in [3,2,1,0]:
-        _this_freq_hist = [_[i] for _ in freq_hist]
-        target_i = [target_eigvals[i] for _ in range(len(iterations))]
-        plt.plot(iterations, target_i, '--', color=colors[i])
-        plt.plot(iterations, _this_freq_hist, color=colors[i], label=f"freq{i}")
-        
-    plt.margins(x=0.05, y=0.05)
-    plt.xlabel("Iterations")
-    plt.ylabel("Frequencies")
-    plt.legend(loc="upper left", bbox_to_anchor=(1, 1)) 
-    plt.yscale('log')
-    plt.savefig(f"{args.output}/freq-hist.png", dpi=400)
+        for i in [3,2,1,0]:
+            _this_freq_hist = [_[i] for _ in freq_hist]
+            target_i = [target_eigvals[i] for _ in range(len(iterations))]
+            plt.plot(iterations, target_i, '--', color=colors[i])
+            plt.plot(iterations, _this_freq_hist, color=colors[i], label=f"freq{i}")
+            
+        plt.margins(x=0.05, y=0.05)
+        plt.xlabel("Iterations")
+        plt.ylabel("Frequencies")
+        plt.legend(loc="upper left", bbox_to_anchor=(1, 1)) 
+        plt.yscale('log')
+        plt.savefig(f"{args.output}/freq-hist.png", dpi=400)
+
+        # write final design to a file
+        hdl = open(f"{args.output}/final-design.txt")
+        hdl.write(f"{sol_xdict=}\n")
+        hdl.close()
