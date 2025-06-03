@@ -152,7 +152,7 @@ if __name__ == "__main__":
     # note - may be better to change it to a frequency error objective later
     # we'll see..
 
-    opt_problem.addObj("mass", scale=target_mass**2)
+    opt_problem.addObj("mass", scale=1.0/target_mass**2) #target_mass**2)
     for imode in range(nmodes):
         opt_problem.addCon(
             f"freq{imode}",

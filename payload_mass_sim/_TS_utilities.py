@@ -1,5 +1,6 @@
 import numpy as np
 from .material import Material
+from numba import jit, njit
 
 # constitutive
 # ------------
@@ -60,7 +61,7 @@ def get_beam_node_normals(N_BASIS, xpts, axis):
     fn2 = np.zeros((3*N_BASIS,), dtype=np.complex128)
 
     for ibasis in range(N_BASIS):
-        pt = -1.0 + 2.0 * ibasis # -1 or 1
+        # pt = -1.0 + 2.0 * ibasis # -1 or 1
 
         # get fields grad X0xi
         X0xi = xpts[0:3] * -0.5 + xpts[3:6] * 0.5

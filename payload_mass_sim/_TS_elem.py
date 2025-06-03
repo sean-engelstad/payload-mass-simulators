@@ -5,6 +5,7 @@ based on TACS timoshenko beam element
 """
 import numpy as np
 from ._TS_utilities import *
+from numba import jit, njit
 
 N_VARS = 6
 N_QUAD = 4
@@ -27,6 +28,8 @@ def get_strain_energy(
     ety = compute_tying_strains(xpts, fn1, fn2, qvars, d1, d2)
 
     Uenergy = 0.0
+
+    # print(f"{xpts=}")
 
     for iquad in range(2):
         xi = -1.0 + 2.0 * iquad
@@ -55,6 +58,7 @@ def get_strain_energy(
 
         # compute additional matrices
         Xd = np.array([list(X0_xi), list(n1), list(n2)]).T
+        # print(f"{Xd=}")
         Xdinv = np.linalg.inv(Xd)
         detXd = np.linalg.det(Xd)
         XdinvT = Xdinv @ T
@@ -103,23 +107,58 @@ def get_stiffness_matrix(
     qvars0 = qvars.copy()
     h = 1e-5
     Ufunc = lambda q : get_strain_energy(xpts, q, ref_axis, CK)
-    for ivar in range(12):
-        # compute diagonals first
-        ipert = np.zeros((12,))
-        ipert[ivar] = h
-        out = 2.0 / h**2 * (Ufunc(qvars) - np.real(Ufunc(qvars+ipert*1j)))
-        Kelem[ivar,ivar] = 2.0 / h**2 * (np.real(Ufunc(qvars)) - np.real(Ufunc(qvars+ipert*1j)))
+
+    # diag part
+    # for ivar in range(12):
+    #     # compute diagonals first
+    #     ipert = np.zeros((12,))
+    #     ipert[ivar] = h
+    #     out = 2.0 / h**2 * (Ufunc(qvars) - np.real(Ufunc(qvars+ipert*1j)))
+    #     Kelem[ivar,ivar] = 2.0 / h**2 * (np.real(Ufunc(qvars)) - np.real(Ufunc(qvars+ipert*1j)))
 
     # now off diagonals
-    for ivar in range(12):
-        for jvar in range(12):
-            if ivar == jvar: continue # skip already did diagonals
-            ijpert = np.zeros((12,))
-            ijpert[ivar] = h
-            ijpert[jvar] = h
+    # for ivar in range(12):
+    #     for jvar in range(ivar):
+    #         # if ivar == jvar: continue # skip already did diagonals
+    #         ijpert = np.zeros((12,))
+    #         ijpert[ivar] = h
+    #         ijpert[jvar] = h
 
-            Kelem[ivar,jvar] = 1.0 / h**2 * (np.real(Ufunc(qvars)) - np.real(Ufunc(qvars + ijpert * 1j))) - 0.5 * (Kelem[ivar,ivar] + Kelem[jvar,jvar])
-            Kelem[jvar,ivar] = Kelem[ivar,jvar]
+    #         Kelem[ivar,jvar] = 1.0 / h**2 * (np.real(Ufunc(qvars)) - np.real(Ufunc(qvars + ijpert * 1j))) - 0.5 * (Kelem[ivar,ivar] + Kelem[jvar,jvar])
+    #         Kelem[jvar,ivar] = Kelem[ivar,jvar]
+
+    # fast diag part with vectorized operations
+    import time
+    time0 = time.time()
+    U0 = np.real(Ufunc(qvars))
+    perturbations = np.eye(12) * h
+    perturbed_qvars = qvars + 1j * perturbations
+    U_perturbed = np.real(np.array([Ufunc(q) for q in perturbed_qvars.T]))
+    Kelem[np.diag_indices(12)] = 2.0 / h**2 * (U0 - U_perturbed)
+    
+
+    # Off-diagonal terms
+    ij_pairs = np.triu_indices(12, k=1)
+    offdiag_perts = np.zeros((len(ij_pairs[0]), 12), dtype=np.complex128)
+
+    for idx, (i, j) in enumerate(zip(*ij_pairs)):
+        offdiag_perts[idx, i] = 1j * h
+        offdiag_perts[idx, j] = 1j * h
+
+    
+
+    perturbed_qvars_offdiag = qvars + offdiag_perts
+    U_perturbed_offdiag = np.real(np.array([Ufunc(q) for q in perturbed_qvars_offdiag]))
+
+    time1 = time.time()
+    dt = time1 - time0
+    # print(f"{dt=:.4e}")
+
+    
+    for idx, (i, j) in enumerate(zip(*ij_pairs)):
+        Upert_ij = U_perturbed_offdiag[idx]
+        Kelem[i, j] = 1.0 / h**2 * (U0 - Upert_ij) - 0.5 * (Kelem[i, i] + Kelem[j, j])
+        Kelem[j, i] = Kelem[i, j]
     return Kelem
 
 def get_stresses(
@@ -508,22 +547,45 @@ def get_mass_matrix(
     qvars0 = qvars.copy()
     h = 1e-5
     Tfunc = lambda q : get_kinetic_energy(xpts, q, ref_axis, CM)
-    for ivar in range(12):
-        # compute diagonals first
-        ipert = np.zeros((12,))
-        ipert[ivar] = h
-        Melem[ivar,ivar] = 2.0 / h**2 * (np.real(Tfunc(qvars)) - np.real(Tfunc(qvars+ipert*1j)))
-        out = 2.0 / h**2 * (np.real(Tfunc(qvars)) - np.real(Tfunc(qvars+ipert*1j)))
-        # print(F"{ivar=} {out=}")
+    # for ivar in range(12):
+    #     # compute diagonals first
+    #     ipert = np.zeros((12,))
+    #     ipert[ivar] = h
+    #     Melem[ivar,ivar] = 2.0 / h**2 * (np.real(Tfunc(qvars)) - np.real(Tfunc(qvars+ipert*1j)))
+    #     out = 2.0 / h**2 * (np.real(Tfunc(qvars)) - np.real(Tfunc(qvars+ipert*1j)))
+    #     # print(F"{ivar=} {out=}")
 
-    # now off diagonals
-    for ivar in range(12):
-        for jvar in range(12):
-            if ivar == jvar: continue # skip already did diagonals
-            ijpert = np.zeros((12,))
-            ijpert[ivar] = h
-            ijpert[jvar] = h
+    # # now off diagonals
+    # for ivar in range(12):
+    #     for jvar in range(12):
+    #         if ivar == jvar: continue # skip already did diagonals
+    #         ijpert = np.zeros((12,))
+    #         ijpert[ivar] = h
+    #         ijpert[jvar] = h
 
-            Melem[ivar,jvar] = 1.0 / h**2 * (np.real(Tfunc(qvars)) - np.real(Tfunc(qvars + ijpert * 1j))) - 0.5 * (Melem[ivar,ivar] + Melem[jvar,jvar])
-            Melem[jvar,ivar] = Melem[ivar,jvar]
+    #         Melem[ivar,jvar] = 1.0 / h**2 * (np.real(Tfunc(qvars)) - np.real(Tfunc(qvars + ijpert * 1j))) - 0.5 * (Melem[ivar,ivar] + Melem[jvar,jvar])
+    #         Melem[jvar,ivar] = Melem[ivar,jvar]
+
+    # fast diag part with vectorized operations
+    U0 = np.real(Tfunc(qvars))
+    perturbations = np.eye(12) * h
+    perturbed_qvars = qvars + 1j * perturbations
+    T_perturbed = np.real(np.array([Tfunc(q) for q in perturbed_qvars.T]))
+    Melem[np.diag_indices(12)] = 2.0 / h**2 * (U0 - T_perturbed)
+
+    # Off-diagonal terms
+    ij_pairs = np.triu_indices(12, k=1)
+    offdiag_perts = np.zeros((len(ij_pairs[0]), 12), dtype=np.complex128)
+
+    for idx, (i, j) in enumerate(zip(*ij_pairs)):
+        offdiag_perts[idx, i] = 1j * h
+        offdiag_perts[idx, j] = 1j * h
+
+    perturbed_qvars_offdiag = qvars + offdiag_perts
+    T_perturbed_offdiag = np.real(np.array([Tfunc(q) for q in perturbed_qvars_offdiag]))
+
+    for idx, (i, j) in enumerate(zip(*ij_pairs)):
+        Upert_ij = T_perturbed_offdiag[idx]
+        Melem[i, j] = 1.0 / h**2 * (U0 - Upert_ij) - 0.5 * (Melem[i, i] + Melem[j, j])
+        Melem[j, i] = Melem[i, j]
     return Melem

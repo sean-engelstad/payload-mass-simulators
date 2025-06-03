@@ -1,7 +1,7 @@
 import numpy as np
 import pyvista as pv
 
-def write_beam_modes_to_vtk(filename, node_coords, elements, mode_shapes=None):
+def write_beam_modes_to_vtk(filename, node_coords, elements, mode_shapes=None, thicknesses=None, nonstruct_masses=None):
     """
     Write a beam structure with beam elements to a VTK file.
 
@@ -32,10 +32,19 @@ def write_beam_modes_to_vtk(filename, node_coords, elements, mode_shapes=None):
         poly.point_data["mode_disp"] = mode_shapes[:, 0:3]
         poly.point_data["mode_rot"] = mode_shapes[:, 3:6]
 
+    if thicknesses is not None:
+        if thicknesses.shape[1] != 2:
+            raise ValueError("thicknesses must be of shape (N, 2)")
+        poly.point_data["t1"] = thicknesses[:, 0]
+        poly.point_data["t2"] = thicknesses[:, 1]
+
+    if nonstruct_masses is not None:
+        poly.point_data["M"] = nonstruct_masses
+
     poly.save(filename)
     # print(f"Saved beam structure with mode shapes to {filename}")
 
-def write_beam_static_to_vtk(filename, node_coords, elements, disps, stresses=None, vm_stress=None):
+def write_beam_static_to_vtk(filename, node_coords, elements, disps, stresses=None, vm_stress=None, thicknesses=None, nonstruct_masses=None):
     """
     Write a static beam solution to a VTK file.
 
@@ -80,6 +89,15 @@ def write_beam_static_to_vtk(filename, node_coords, elements, disps, stresses=No
         if vm_stress.ndim != 1 or vm_stress.shape[0] != node_coords.shape[0]:
             raise ValueError("vm_stress must be of shape (N,)")
         poly.point_data["von_mises"] = vm_stress
+
+    if thicknesses is not None:
+        if thicknesses.shape[1] != 2:
+            raise ValueError("thicknesses must be of shape (N, 2)")
+        poly.point_data["t1"] = thicknesses[:, 0]
+        poly.point_data["t2"] = thicknesses[:, 1]
+
+    if nonstruct_masses is not None:
+        poly.point_data["M"] = nonstruct_masses
 
     poly.save(filename)
     # print(f"Saved static beam solution to {filename}")
