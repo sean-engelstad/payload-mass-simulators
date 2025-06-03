@@ -508,9 +508,11 @@ class BeamAssembler:
         # fail_grad = self._get_dfail_dx(x)
 
         # update solve of u(x) so we account for du/dx or adjoint term
+        self.solve_static(x - p_vec * h)
+        failn1 = self.get_failure_index(x - p_vec * h)
         self.solve_static(x + p_vec * h)
         fail1 = self.get_failure_index(x + p_vec * h)
-        FD_val = np.real( (fail1 - fail0) / h )
+        FD_val = np.real( (fail1 - failn1) / 2 / h )
         HC_val = np.dot(fail_grad, p_vec)
         print(f"dfail/dx total grad FD test: {FD_val=} {HC_val=}")
         return

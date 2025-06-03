@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     def loc_dv_list(length, thick=5e-3):
         # starting dv list
-        return ([length] + [thick]*4 + [0.0, 0.5])
+        return ([length] + [thick]*4 + [0.05, 0.5])
 
     # tree data structure
     # -------------------
@@ -49,20 +49,29 @@ if __name__ == "__main__":
         nelem_per_comp=5 
     )
     init_design = np.array(init_design)
+
+    # for derivatives testing, want to move somewhat away from equal thickness design prob
+    # init_design += np.random.rand(init_design.shape[0]) * 1e-2
+
     ncomp = tree.ncomp
     num_dvs = init_design.shape[0]
     inertial_data = InertialData([1, 0, 0])
 
-    beam3d = BeamAssemblerAdvanced(material, tree, inertial_data)
+    beam3d = BeamAssemblerAdvanced(material, tree, inertial_data, rho_KS=1.0)
 
     demo = True
     if demo:
         # now build 3D beam solver and solve the eigenvalue problem
-        nmodes = 15
+        nmodes = 5
         freqs = beam3d.get_frequencies(init_design, nmodes)
         print(f"{freqs=}")
         beam3d.write_freq_to_vtk(nmodes=nmodes, file_prefix="_modal/")
         # beam3d.get_frequency_gradient(init_design, 0)
+
+        beam3d.solve_static(init_design)
+        fail_index = beam3d.get_failure_index(init_design)
+        print(f"{fail_index=}")
+        beam3d.write_static_to_vtk(file_prefix="_modal/")
 
     # beam3d.plot_eigenmodes(
     #     nmodes=2,
@@ -72,8 +81,20 @@ if __name__ == "__main__":
 
     debug = False
     if debug:
-        # FD test on the gradients
-        for imode in range(4):
-            beam3d.freq_FD_test(init_design, imode, h=1e-3)
-            beam3d.dKdx_FD_test(init_design, imode, h=1e-5)
-            beam3d.dMdx_FD_test(init_design, imode, h=1e-5)
+        # FD test on the gradients, all pass in new advanced beam assembler
+        # for imode in range(1): #(4):
+            # var scalings are a bit weird here
+            # beam3d.dKdx_FD_test(init_design, imode, h=1e-6)
+            # beam3d.dMdx_FD_test(init_design, imode, h=1e-6)
+            # beam3d.freq_FD_test(init_design, imode, h=1e-6)
+
+        # beam3d.mass_FD_test(init_design, h=1e-6)
+        # NOTE : if DV not active failure mode, deriv near 0.. not wrong, just how it works
+        beam3d.dKdx_FD_static_test(init_design, h=1e-5, idv=0+7)
+        # beam3d.dfail_dx_FD_test(init_design, h=1e-5, idv=0+7)
+        # beam3d.dfail_du_FD_test(init_design, h=1e-5)
+        # beam3d.dRdx_inertial_FD_test(init_design, h=1e-6, idv=0+7)
+
+        # beam3d.rho_KS = 0.1
+        # beam3d.fail_index_FD_test(init_design, h=1e-6)
+            

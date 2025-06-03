@@ -10,9 +10,6 @@ from ._TS_elem import *
 from scipy.linalg import eigh
 from .write_vtk import *
 from .inertial_data import *
-from scipy.sparse import bsr_matrix
-from scipy.sparse.linalg import eigsh, LinearOperator, spilu
-from .sparse_utils import apply_rcm_reordering
 
 class BeamAssemblerAdvanced:
     """the advanced beam assembler has tapered thicknesses and lumped masses which the regular one does not"""
@@ -24,7 +21,9 @@ class BeamAssemblerAdvanced:
         self.safety_factor = safety_factor
         self.sparse = sparse
 
+        # register some important info to the tree object
         self.tree.ndvs_per_comp = 7
+        self.tree.rho = self.material.rho
 
         # some important metadata quantities
         self.nnodes = self.tree.nnodes
@@ -82,13 +81,13 @@ class BeamAssemblerAdvanced:
         # loop over components and elements
         for icomp in range(self.ncomp):
             # local des vars in this component
-            L = x[7*icomp]
-            t1i = x[7*icomp+1]
+            # L = x[7*icomp]
+            t1i = x[7*icomp+1] # initial and final tapered thicknesses, each direction
             t1f = x[7*icomp+2]
             t2i = x[7*icomp+3]
             t2f = x[7*icomp+4]
-            Mmass = x[7*icomp+5]
-            mx = x[7*icomp+6]
+            Mmass = x[7*icomp+5] # lumped mass mag
+            mx = x[7*icomp+6] # lumped mass 0 to 1 position
 
             # determine element orientation for first elem in comp group
             first_elem = nelem_per_comp * icomp
@@ -111,11 +110,16 @@ class BeamAssemblerAdvanced:
             start = nelem_per_comp * icomp
             for ielem in range(start, start + nelem_per_comp):
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
                 t2 = t2i * (1-xi) + t2f * xi
+
+                if t1 < 0 or t2 < 0:
+                    print(f"{t1=} {t2=} {xi=}")
+
+                # print(f"{t1=} {t2=}")
 
                 # get the Kelem and Melem for this component
                 Cfull = get_constitutive_data(self.material, t1, t2)
@@ -137,10 +141,11 @@ class BeamAssemblerAdvanced:
             elem_nodes = self.elem_conn[ielem]
             glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
             rows, cols = np.ix_(glob_dof, glob_dof)
-            xi_start = (ielem)/nelem_per_comp
-            xi_elem = (mx - xi_start) * nelem_per_comp
+            xi_start = mx % (1.0/nelem_per_comp)
+            xi_elem = xi_start * nelem_per_comp
             Mi = Mmass * (1-xi_elem); Mf = Mmass * xi_elem
             Melem_lumped = np.diag([Mi]*6 + [Mf]*6) / 2.0
+            # print(f'{np.diag(Melem_lumped)=}')
             M[rows,cols] += Melem_lumped
 
         # done with assembly procedure --------------
@@ -162,10 +167,14 @@ class BeamAssemblerAdvanced:
         # TODO : compute inertial loads n * rho * g * A on different parts of the structure..
         assert(self.inertial_data)
 
+        # get new xpts (kind of redundant call here, just here for deriv testing mostly)
+        lengths = x[0::7]
+        self.xpts = self.tree.get_xpts(lengths)
+
         # assuming constant load factor for now, not differentiated
         mass = self.get_mass(x)     
         nelem_per_comp = self.tree.nelem_per_comp
-        n = self.inertial_data.get_load_factor(mass)
+        # n = self.inertial_data.get_load_factor(mass)
         inertial_direc = self.inertial_data.inertial_direction
         rho = self.material.rho
         g = self.inertial_data.accel_grav
@@ -204,7 +213,7 @@ class BeamAssemblerAdvanced:
                 S1 = t11 * t21 # CS area at start of element
                 S2 = t12 * t22 # CS area at end of element
                 # volume of frustum (tapered beam section)
-                V = Le / 3.0 * (S1 + S2 + np.sqrt(S1 * S2))
+                V = Le / 3.0 * (S1 + S2 + 0.5 * (t11 * t22 + t12 * t21))
 
                 nodal_load_mag = rho * g * V
                 # print(f"{nodal_load_mag=}")
@@ -213,7 +222,6 @@ class BeamAssemblerAdvanced:
                 # compute element nodal loads
                 Felem = np.zeros((12,))
                 for i in range(3):
-                    cart_direc = np.zeros((3,))
                     # this is not perfect, could distribute mass better, but it's fine for now probably
                     # just 0.5 to each node
                     Felem[i] = 0.5 * nodal_load_mag * inertial_direc[i]
@@ -225,11 +233,11 @@ class BeamAssemblerAdvanced:
                 F[glob_dof] += Felem
 
             # add lumped mass.. in element which now contains the beam
-            ielem = start + np.floor(mx * nelem_per_comp)
+            ielem = int(start + np.floor(mx * nelem_per_comp))
             elem_nodes = self.elem_conn[ielem]
             glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
-            xi_start = (ielem)/nelem_per_comp
-            xi_elem = (mx - xi_start) * nelem_per_comp
+            xi_start = mx % (1.0/nelem_per_comp)
+            xi_elem = xi_start * nelem_per_comp
             Mi = Mmass * (1-xi_elem); Mf = Mmass * xi_elem
             Fmass_elem = np.zeros((12,))
             for i in range(3):
@@ -281,7 +289,7 @@ class BeamAssemblerAdvanced:
             start = nelem_per_comp * icomp
             for ielem in range(start, start + nelem_per_comp):
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
@@ -352,7 +360,7 @@ class BeamAssemblerAdvanced:
             start = nelem_per_comp * icomp
             for ielem in range(start, start + nelem_per_comp):
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
@@ -422,7 +430,7 @@ class BeamAssemblerAdvanced:
             # volume of frustum (tapered beam)
             Si = t1i * t2i 
             Sf = t1f * t2f
-            V = L / 3.0 * (Si + Sf + np.sqrt(Si * Sf))
+            V = L / 3.0 * (Si + Sf + 0.5 * (t1i * t2f + t2i * t1f))
 
             mass += rho * V + Mmass   
         return mass
@@ -494,7 +502,7 @@ class BeamAssemblerAdvanced:
                 glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
 
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
@@ -540,16 +548,16 @@ class BeamAssemblerAdvanced:
 
             Si = t1i * t2i 
             Sf = t1f * t2f
-            V = L / 3.0 * (Si + Sf + np.sqrt(Si * Sf))
+            V = L / 3.0 * (Si + Sf + 0.5 * (t1i * t2f + t1f * t2i))
 
-            Sib = rho * L / 3.0 * (1.0  + np.sqrt(Sf/Si) / 2.0)
-            Sfb = rho * L / 3.0 * (1.0  + np.sqrt(Si/Sf) / 2.0)
+            Sib = rho * L / 3.0
+            Sfb = rho * L / 3.0
 
             mgrad[7*icomp] = rho * V / L
-            mgrad[7*icomp + 1] = Sib * Si / t1i
-            mgrad[7*icomp + 2] = Sfb * Sf / t1f
-            mgrad[7*icomp + 3] = Sib * Si / t2i
-            mgrad[7*icomp + 4] = Sfb * Sf / t2f
+            mgrad[7*icomp + 1] = Sib * Si / t1i + rho * L / 6.0 * t2f
+            mgrad[7*icomp + 2] = Sfb * Sf / t1f + rho * L / 6.0 * t2i
+            mgrad[7*icomp + 3] = Sib * Si / t2i + rho * L / 6.0 * t1f
+            mgrad[7*icomp + 4] = Sfb * Sf / t2f + rho * L / 6.0 * t1i
 
             # lumped mass terms
             mgrad[7*icomp+5] = 1.0 # Mmass
@@ -582,16 +590,19 @@ class BeamAssemblerAdvanced:
         dfail_dx = self._get_dfail_dx(x)
         dfail_dx += self._get_dKdx_static_term(x)
         dfail_dx -= self._get_inertial_dRdx_term(x)
+
+        # dfail_dx[0::7] *= -1 # ? why my length derivs wrong?
         # why we need negative sign here?
-        dfail_dx *= -1.0
+        # dfail_dx *= -1.0
         return dfail_dx
 
     def freq_FD_test(self, x, imode, h=1e-3):
         p_vec = np.random.rand(self.num_dvs)
-        freqs = self.get_frequencies(x)
+        self.get_frequencies(x)
         freq_grad = self.get_frequency_gradient(x, imode)
+        freqs1 = self.get_frequencies(x - p_vec * h)
         freqs2 = self.get_frequencies(x + p_vec * h)
-        FD_val = (freqs2[imode] - freqs[imode]) / h
+        FD_val = (freqs2[imode] - freqs1[imode]) / 2 / h
         HC_val = np.dot(freq_grad, p_vec)
         print(f"freq[{imode}] FD test: {FD_val=} {HC_val=}")
         return
@@ -606,14 +617,20 @@ class BeamAssemblerAdvanced:
         print(f"mass FD test: {FD_val=} {HC_val=}")
         return
 
-    def dfail_dx_FD_test(self, x, h=1e-5):
+    def dfail_dx_FD_test(self, x, h=1e-5, idv='all'):
         # test dfail/dx grad, with u fixed (so only partial not total derivative here)
-        p_vec = np.random.rand(self.num_dvs)
+        if idv == 'all':
+            p_vec = np.random.rand(self.num_dvs)
+        else:
+            p_vec = np.zeros((self.num_dvs))
+            p_vec[idv] = 1.0
+
         self.solve_static(x)
-        fail0 = self.get_failure_index(x)
+        self.get_failure_index(x)
         fail_grad = self._get_dfail_dx(x)
+        failn1 = self.get_failure_index(x - p_vec * h)
         fail1 = self.get_failure_index(x + p_vec * h)
-        FD_val = np.real( (fail1 - fail0) / h )
+        FD_val = np.real( (fail1 - failn1) / 2 / h )
         HC_val = np.dot(fail_grad, p_vec)
         print(f"dfail/dx partial grad FD test: {FD_val=} {HC_val=}")
         return
@@ -623,43 +640,55 @@ class BeamAssemblerAdvanced:
         self.u = np.random.rand(self.ndof) * 1e-3
         fail0 = self.get_failure_index(x)
         fail_grad = self._get_dfail_du(x)
-        self.u += p_vec * h
+        self.u -= p_vec * h
+        failn1 = self.get_failure_index(x)
+        self.u += 2 * p_vec * h
         fail1 = self.get_failure_index(x)
-        FD_val = np.real( (fail1 - fail0) / h )
+        FD_val = np.real( (fail1 - failn1) / 2 / h )
         HC_val = np.dot(fail_grad, p_vec)
         print(f"dfail/du partial grad FD test: {FD_val=} {HC_val=}")
         return
 
     def fail_index_FD_test(self, x, h=1e-5):
         # test dfail/dx grad, with u fixed (so only partial not total derivative here)
-        p_vec = np.random.rand(self.num_dvs)
+        # p_vec = np.random.rand(self.num_dvs)
+        p_vec = np.zeros((self.num_dvs,))
+        p_vec[6+7] = 1.0 # length good now, t1 + t2 derivs fail
+
         self.solve_static(x)
-        fail0 = self.get_failure_index(x)
+        # self.get_failure_index(x) #fail0 = 
         fail_grad = self.get_failure_index_gradient(x)
         # fail_grad = self._get_dfail_dx(x)
 
         # update solve of u(x) so we account for du/dx or adjoint term
+        self.solve_static(x - p_vec * h)
+        failn1 = self.get_failure_index(x - p_vec * h)
+
         self.solve_static(x + p_vec * h)
         fail1 = self.get_failure_index(x + p_vec * h)
-        FD_val = np.real( (fail1 - fail0) / h )
+        FD_val = np.real( (fail1 - failn1) / 2 / h )
         HC_val = np.dot(fail_grad, p_vec)
         print(f"dfail/dx total grad FD test: {FD_val=} {HC_val=}")
         return
     
     def dKdx_FD_test(self, x, imode, h=1e-4):
         p_vec = np.random.rand(self.num_dvs)
+        # p_vec[5:] = 0.0
         # p_vec = np.zeros((self.num_dvs,))
-        # p_vec[2] = 1.0 # length good now, t1 + t2 derivs fail
+        # p_vec[6] = 1.0 # length good now, t1 + t2 derivs fail
         self.get_frequencies(x)
-        Kr0 = self.Kr.copy()
+        # Kr0 = self.Kr.copy()
         phi = self.eigvecs[:,imode].copy()
         dKrdx_grad = self._get_dKdx_freq_term(x, imode)
         # print(F"{dKrdx_grad=}")
         # print(f"{phi[:12]=}")
-        self.get_frequencies(x + p_vec * h)
+        self._build_dense_matrices(x - p_vec * h)
+        Kr1 = self.Kr.copy()
+
+        self._build_dense_matrices(x + p_vec * h)
         Kr2 = self.Kr.copy()
         
-        dKr_dx_p = (Kr2 - Kr0) / h
+        dKr_dx_p = (Kr2 - Kr1) / 2 /h
         # plt.imshow(dKr_dx_p)
         # plt.show()
 
@@ -670,10 +699,13 @@ class BeamAssemblerAdvanced:
         print(f"dK/dx FD test: {FD_val=} {HC_val=}")
         return
 
-    def dKdx_FD_static_test(self, x, h=1e-4):
-        p_vec = np.random.rand(self.num_dvs)
-        # p_vec = np.zeros((self.num_dvs,))
-        # p_vec[2] = 1.0 # length good now, t1 + t2 derivs fail
+    def dKdx_FD_static_test(self, x, h=1e-4, idv='all'):
+        if idv == 'all':
+            p_vec = np.random.rand(self.num_dvs)
+        else:
+            p_vec = np.zeros((self.num_dvs,))
+            p_vec[idv] = 1.0 # length good now, t1 + t2 derivs fail
+        # NOTE : this test might miss the effect of inertial load changes
         self.solve_static(x)
         self.get_failure_index_gradient(x)
         Kr0 = self.Kr.copy()
@@ -695,18 +727,57 @@ class BeamAssemblerAdvanced:
         print(f"dK/dx static FD test: {FD_val=} {HC_val=}")
         return
     
+    def dRdx_inertial_FD_test(self, x, h=1e-4, idv='all'):
+        if idv=='all':
+            p_vec = np.random.rand(self.num_dvs)
+        else:
+            p_vec = np.zeros((self.num_dvs,))
+            p_vec[idv] = 1.0 # length good now, t1 + t2 derivs fail
+
+        # first just get the matrices and vec F at init design + adjoint
+        self.solve_static(x)
+        self.get_failure_index_gradient(x)
+        # Kr0 = self.Kr.copy()
+        psir = self.psir.copy()
+        # ur = self.ur.copy()
+
+        # compute the <psi,dFr/dx> HC vs FD
+        dRdx_grad = self._get_inertial_dRdx_term(x)
+
+        self._build_inertial_loads(x - p_vec * h)
+        Frn1 = self.Fr.copy()
+
+        self._build_inertial_loads(x + p_vec * h)
+        Fr1 = self.Fr.copy()
+
+        # print(f"{Frn1-Fr1=}")
+
+        dFr_dx_p = np.dot(psir, (Fr1 - Frn1) / 2 /h)
+
+        # print(F"{dKr_dx_p=}")
+        # print(F"{np.diag(dKr_dx_p)=}")
+        FD_val = dFr_dx_p
+        HC_val = np.dot(p_vec, dRdx_grad)
+        print(f"dR/dx inertial load (static) FD test: {FD_val=} {HC_val=}")
+        return
+    
     def dMdx_FD_test(self, x, imode, h=1e-5):
         p_vec = np.random.rand(self.num_dvs)
+        # p_vec[5:] = 0.0
         # p_vec = np.zeros((self.num_dvs,))
-        # p_vec[0] = 1.0
+        # p_vec[6] = 1.0
         self.get_frequencies(x)
-        Mr0 = self.Mr.copy()
+        # Mr0 = self.Mr.copy()
         phi = self.eigvecs[:,imode].copy()
         dMrdx_grad = self._get_dMdx_term(x, imode)
-        self.get_frequencies(x + p_vec * h)
+
+        self._build_dense_matrices(x - p_vec * h)
+        Mr1 = self.Mr.copy()
+
+        self._build_dense_matrices(x + p_vec * h)
         Mr2 = self.Mr.copy()
         
-        dMr_dx_p = (Mr2 - Mr0) / h
+        dMr_dx_p = (Mr2 - Mr1) / 2.0 / h
         FD_val = np.dot(np.dot(dMr_dx_p, phi), phi)
         HC_val = np.dot(p_vec, dMrdx_grad)
         print(f"dM/dx FD test: {FD_val=} {HC_val=}")
@@ -761,7 +832,7 @@ class BeamAssemblerAdvanced:
                 glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
 
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
@@ -865,7 +936,7 @@ class BeamAssemblerAdvanced:
                 glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
 
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
@@ -944,7 +1015,7 @@ class BeamAssemblerAdvanced:
                 ue = self.u[glob_dof]
 
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
@@ -962,6 +1033,8 @@ class BeamAssemblerAdvanced:
                     elem_xpts0 + pert_xpts * 1j * h,
                     phie, ue, ref_axis, CK
                 )) / h * 2.0
+
+                # print(f"{dKdx_grad[7*icomp]=}")
 
                 # compute dK/t1 term ------------
                 Cd1 = get_constitutive_data(self.material, t1 + h * 1j, t2)
@@ -1047,7 +1120,7 @@ class BeamAssemblerAdvanced:
                 S1 = t11 * t21 # CS area at start of element
                 S2 = t12 * t22 # CS area at end of element
                 # volume of frustum (tapered beam section)
-                V = Le / 3.0 * (S1 + S2 + np.sqrt(S1 * S2))
+                V = Le / 3.0 * (S1 + S2 + 0.5 * (t11 * t22 + t12 * t21))
 
                 nodal_load_mag = rho * g * V
                 # print(f"{nodal_load_mag=}")
@@ -1066,12 +1139,12 @@ class BeamAssemblerAdvanced:
 
                 # compute some prelim scalar derivatives first
                 dmag_dV = nodal_load_mag / V
-                dmag_dS1 = dmag_dV * Le / 3.0 * (1.0 + 0.5 * np.sqrt(S2/S1))
-                dmag_dS2 = dmag_dV * Le / 3.0 * (1.0 + 0.5 * np.sqrt(S1/S2))
-                dmag_dt1i = dmag_dS1 * t21 * (1 - xi1) + dmag_dS2 * t22 * (1 - xi2)
-                dmag_dt1f = dmag_dS1 * t21 * xi1 + dmag_dS2 * t22 * xi2
-                dmag_dt2i = dmag_dS1 * t11 * (1 - xi1) + dmag_dS2 * t12 * (1 - xi2)
-                dmag_dt2f = dmag_dS1 * t11 * xi1 + dmag_dS2 * t12 * xi2
+                dmag_dS1 = dmag_dV * Le / 3.0
+                dmag_dS2 = dmag_dV * Le / 3.0
+                dmag_dt1i = dmag_dS1 * t21 * (1 - xi1) + dmag_dS2 * t22 * (1 - xi2) + dmag_dV * Le/6.0 * (t22 * (1-xi1) + t21 * (1-xi2))
+                dmag_dt1f = dmag_dS1 * t21 * xi1 + dmag_dS2 * t22 * xi2 + dmag_dV * Le/6.0 * (t22 * xi1 + t21 * xi2)
+                dmag_dt2i = dmag_dS1 * t11 * (1 - xi1) + dmag_dS2 * t12 * (1 - xi2) + dmag_dV * Le/6.0 * (t12 * (1-xi1) + t11 * (1-xi2))
+                dmag_dt2f = dmag_dS1 * t11 * xi1 + dmag_dS2 * t12 * xi2 + dmag_dV * Le/6.0 * (t12 * xi1 + t11 * xi2)
 
                 # first compute L deriv
                 dFelem_dL = Felem / L
@@ -1094,27 +1167,26 @@ class BeamAssemblerAdvanced:
                 inertial_grad[7*icomp + 4] += np.dot(psie, dFelem_dt2f)
 
             # lumped mass derivs
-            ielem = start + np.floor(mx * nelem_per_comp)
+            ielem = int(start + np.floor(mx * nelem_per_comp))
             elem_nodes = self.elem_conn[ielem]
             glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
             psie = psi[glob_dof]
-            xi_start = (ielem)/nelem_per_comp
-            xi_elem = (mx - xi_start) * nelem_per_comp
+            xi_start = mx % (1.0/nelem_per_comp)
+            xi_elem = xi_start * nelem_per_comp
             Mi = Mmass * (1-xi_elem); Mf = Mmass * xi_elem
             Fmass_elem = np.zeros((12,))
             for i in range(3):
                 Fmass_elem[i] = 0.5 * inertial_direc[i] * Mi * g
                 Fmass_elem[i+6] = 0.5 * inertial_direc[i] * Mf * g
             
-            dFmass_dMmass = Fmass_elem / Mmass
             dFmass_dmx = np.zeros((12,))
             dMi_dmx = -Mmass * nelem_per_comp
-            dMf_dx = Mmass * nelem_per_comp
+            dMf_dmx = Mmass * nelem_per_comp
             for i in range(3):
                 dFmass_dmx[i] = 0.5 * inertial_direc[i] * dMi_dmx * g
-                dFmass_dmx[i+6] = 0.5 * inertial_direc[i] * dMf_dx * g
+                dFmass_dmx[i+6] = 0.5 * inertial_direc[i] * dMf_dmx * g
 
-            inertial_grad[7*icomp + 5] += np.dot(psie, dFmass_dMmass)
+            inertial_grad[7*icomp + 5] += np.dot(psie, Fmass_elem / Mmass)
             inertial_grad[7*icomp + 6] += np.dot(psie, dFmass_dmx)
 
         return inertial_grad
@@ -1138,8 +1210,8 @@ class BeamAssemblerAdvanced:
             t1f = x[7*icomp+2]
             t2i = x[7*icomp+3]
             t2f = x[7*icomp+4]
-            Mmass = x[7*icomp+5]
-            mx = x[7*icomp+6]
+            # Mmass = x[7*icomp+5]
+            # mx = x[7*icomp+6]
 
             # prelim --------------
             # get orient ind and ref axis
@@ -1162,7 +1234,7 @@ class BeamAssemblerAdvanced:
                 phie = phi[glob_dof]
 
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
@@ -1250,7 +1322,7 @@ class BeamAssemblerAdvanced:
                 phie = phi[glob_dof]
 
                 # compute the midpoint of the element on 0 to 1 coordinate
-                xi = (ielem+1)/nelem_per_comp - 0.5 / nelem_per_comp
+                xi = (ielem-start+1)/nelem_per_comp - 0.5 / nelem_per_comp
 
                 # compute the thicknesses at this element
                 t1 = t1i * (1-xi) + t1f * xi
@@ -1298,15 +1370,15 @@ class BeamAssemblerAdvanced:
             elem_nodes = self.elem_conn[ielem]
             glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
             phie = phi[glob_dof]
-            xi_start = (ielem)/nelem_per_comp
-            xi_elem = (mx - xi_start) * nelem_per_comp
+            xi_start = mx % (1.0/nelem_per_comp)
+            # xi_elem = xi_start * nelem_per_comp
             # Mi = Mmass * (1-xi_elem); Mf = Mmass * xi_elem
             # Melem_lumped = np.diag(Mi * [1]*6 + Mf * [1]*6) / 2.0
             dM_dMi = np.dot(phie[:6], phie[:6]) / 2.0
-            dM_dMf = np.dot(phie[6:], phie[6:]) / 2.0
+            dM_dMf = np.dot(phie[6:], phie[6:]) / 2.0 # /2 bc half above, /2 again bc KE
 
             # lumped mass gradients
-            dMdx_grad[7*icomp + 5] += dM_dMi + dM_dMf
+            dMdx_grad[7*icomp + 5] += (dM_dMi + dM_dMf) / 2.0
             dMi_dmx = -Mmass * nelem_per_comp
             dMf_dmx = Mmass * nelem_per_comp
             dMdx_grad[7*icomp + 6] += dM_dMi * dMi_dmx + dM_dMf * dMf_dmx
