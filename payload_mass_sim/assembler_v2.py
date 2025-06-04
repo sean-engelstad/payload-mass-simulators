@@ -228,8 +228,6 @@ class BeamAssemblerAdvanced:
                     Felem[i] = 0.5 * nodal_load_mag * inertial_direc[i]
                     Felem[i+6] = Felem[i]
 
-                print(f"{Felem=}")
-
                 elem_nodes = self.elem_conn[ielem]
                 # print(f"{ielem=} {elem_nodes=}")
                 glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
@@ -242,18 +240,14 @@ class BeamAssemblerAdvanced:
             xi_start = mx % (1.0/nelem_per_comp)
             xi_elem = xi_start * nelem_per_comp
             Mi = Mmass * (1-xi_elem); Mf = Mmass * xi_elem
-            if Mi < 0 or Mf < 0:
-                print(f"{Mi=} {Mf=}")
             Fmass_elem = np.zeros((12,))
             for i in range(3):
                 Fmass_elem[i] = 0.5 * inertial_direc[i] * Mi * g
                 Fmass_elem[i+6] = 0.5 * inertial_direc[i] * Mf * g
-            print(f"{Fmass_elem=}")
             F[glob_dof] += Fmass_elem
 
         # compute reduced forces from bcs
         # assuming we don't need to redefine self.keep_dof, defined in _build_dense_matrices
-        print(f"{F[0::6]=}")
         self.Fr = F[self.keep_dof]
         return
 
