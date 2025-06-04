@@ -16,37 +16,45 @@ if __name__ == "__main__":
     # -------------------
     # directions [0,1,2,3,4,5] equiv to x-,x+,y-,y+,z-,z+
 
-    # base and level 1
-    init_design = loc_dv_list(0.3) * 9
-    tree_start_nodes = [0] + [1]*4 + [2,3,4,5]
-    tree_directions = [5] + [0,1,2,3] + [5]*4
+    init_design = loc_dv_list(0.3) * 1
+    tree_start_nodes = [0]
+    tree_directions = [5] 
+
+    include_level1 = True
+    if include_level1:
+        # base and level 1
+        init_design += loc_dv_list(0.3) * 8
+        tree_start_nodes += [1]*4 + [2,3,4,5]
+        tree_directions += [0,1,2,3] + [5]*4
 
     Llittle = 0.2 # 0.1
 
+    include_level2 = True
+    if include_level2:
     # level 2, x- branch
-    init_design += loc_dv_list(Llittle) * 8
-    tree_start_nodes += [6]*4 + [10,11,12,13]
-    tree_directions += [0,1,2,3] + [5]*4
+        init_design += loc_dv_list(Llittle) * 8
+        tree_start_nodes += [6]*4 + [10,11,12,13]
+        tree_directions += [0,1,2,3] + [5]*4
 
-    # level 2, x+ branch
-    init_design += loc_dv_list(Llittle) * 8
-    tree_start_nodes += [7]*4 + [18,19,20,21]
-    tree_directions += [0,1,2,3] + [5]*4
+        # level 2, x+ branch
+        init_design += loc_dv_list(Llittle) * 8
+        tree_start_nodes += [7]*4 + [18,19,20,21]
+        tree_directions += [0,1,2,3] + [5]*4
 
-    # level 2, y- branch
-    init_design += loc_dv_list(Llittle) * 8
-    tree_start_nodes += [8]*4 + [26,27,28,29]
-    tree_directions += [0,1,2,3] + [5]*4
+        # level 2, y- branch
+        init_design += loc_dv_list(Llittle) * 8
+        tree_start_nodes += [8]*4 + [26,27,28,29]
+        tree_directions += [0,1,2,3] + [5]*4
 
-    # level 2, y+ branch
-    init_design += loc_dv_list(Llittle) * 8
-    tree_start_nodes += [9]*4 + [34,35,36,37]
-    tree_directions += [0,1,2,3] + [5]*4
+        # level 2, y+ branch
+        init_design += loc_dv_list(Llittle) * 8
+        tree_start_nodes += [9]*4 + [34,35,36,37]
+        tree_directions += [0,1,2,3] + [5]*4
 
     tree = TreeData(
         tree_start_nodes=tree_start_nodes,
         tree_directions=tree_directions,
-        nelem_per_comp=5 
+        nelem_per_comp=5
     )
     init_design = np.array(init_design)
 
@@ -57,9 +65,9 @@ if __name__ == "__main__":
     num_dvs = init_design.shape[0]
     inertial_data = InertialData([1, 0, 0])
 
-    beam3d = BeamAssemblerAdvanced(material, tree, inertial_data, rho_KS=1.0)
+    beam3d = BeamAssemblerAdvanced(material, tree, inertial_data, rho_KS=0.1)
 
-    demo = True
+    demo = False
     if demo:
         # now build 3D beam solver and solve the eigenvalue problem
         nmodes = 5
@@ -79,22 +87,22 @@ if __name__ == "__main__":
     #     def_scale=0.5
     # )
 
-    debug = False
+    debug = True
     if debug:
         # FD test on the gradients, all pass in new advanced beam assembler
         # for imode in range(1): #(4):
             # var scalings are a bit weird here
-            # beam3d.dKdx_FD_test(init_design, imode, h=1e-6)
+        # beam3d.dKdx_FD_test(init_design, imode=0, h=1e-6, idv=0)
             # beam3d.dMdx_FD_test(init_design, imode, h=1e-6)
             # beam3d.freq_FD_test(init_design, imode, h=1e-6)
 
         # beam3d.mass_FD_test(init_design, h=1e-6)
         # NOTE : if DV not active failure mode, deriv near 0.. not wrong, just how it works
-        beam3d.dKdx_FD_static_test(init_design, h=1e-5, idv=0+7)
-        # beam3d.dfail_dx_FD_test(init_design, h=1e-5, idv=0+7)
-        # beam3d.dfail_du_FD_test(init_design, h=1e-5)
-        # beam3d.dRdx_inertial_FD_test(init_design, h=1e-6, idv=0+7)
+        # beam3d.dKdx_FD_static_test(init_design, h=1e-5, idv='all') #'all'
+        # beam3d.dfail_dx_FD_test(init_design, h=1e-5, idv='all')
+        beam3d.dfail_du_FD_test(init_design, h=1e-5)
+        # beam3d.dRdx_inertial_FD_test(init_design, h=1e-6, idv='all')
 
         # beam3d.rho_KS = 0.1
-        # beam3d.fail_index_FD_test(init_design, h=1e-6)
+        beam3d.fail_index_FD_test(init_design, h=1e-5, idv=0)
             

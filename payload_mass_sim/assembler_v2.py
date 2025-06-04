@@ -205,7 +205,7 @@ class BeamAssemblerAdvanced:
             start = nelem_per_comp * icomp
             for ielem in range(start, start + nelem_per_comp):
                 # get the xi [0,1] at start and end of element
-                xi1 = ielem/nelem_per_comp
+                xi1 = (ielem-start)/nelem_per_comp
                 xi2 = xi1 + 1.0 / nelem_per_comp
                 t11 = t1i * (1-xi1) + t1f * xi1
                 t12 = t1i * (1-xi2) + t1f * xi2
@@ -586,7 +586,8 @@ class BeamAssemblerAdvanced:
     def get_failure_index(self, x):
         """ just for visualization, not VM stresses for optimization """
         vm_fail_vec = self._get_vm_fail_vec(x)
-        ks_fail_index = np.log(np.sum(np.exp(self.rho_KS * vm_fail_vec))) / self.rho_KS
+        sig_max = np.max(vm_fail_vec)
+        ks_fail_index = sig_max + np.log(np.sum(np.exp(self.rho_KS * (vm_fail_vec - sig_max)))) / self.rho_KS
         return ks_fail_index
 
     # SENSITIVITIES --------------------------
@@ -709,11 +710,13 @@ class BeamAssemblerAdvanced:
         print(f"dfail/du partial grad FD test: {FD_val=} {HC_val=}")
         return
 
-    def fail_index_FD_test(self, x, h=1e-5):
+    def fail_index_FD_test(self, x, h=1e-5, idv='all'):
         # test dfail/dx grad, with u fixed (so only partial not total derivative here)
-        # p_vec = np.random.rand(self.num_dvs)
-        p_vec = np.zeros((self.num_dvs,))
-        p_vec[6+7] = 1.0 # length good now, t1 + t2 derivs fail
+        if idv == 'all':
+            p_vec = np.random.rand(self.num_dvs)
+        else:
+            p_vec = np.zeros((self.num_dvs,))
+            p_vec[idv] = 1.0 # length good now, t1 + t2 derivs fail
 
         self.solve_static(x)
         # self.get_failure_index(x) #fail0 = 
@@ -731,11 +734,12 @@ class BeamAssemblerAdvanced:
         print(f"dfail/dx total grad FD test: {FD_val=} {HC_val=}")
         return
     
-    def dKdx_FD_test(self, x, imode, h=1e-4):
-        p_vec = np.random.rand(self.num_dvs)
-        # p_vec[5:] = 0.0
-        # p_vec = np.zeros((self.num_dvs,))
-        # p_vec[6] = 1.0 # length good now, t1 + t2 derivs fail
+    def dKdx_FD_test(self, x, imode, h=1e-4, idv='all'):
+        if idv == 'all':
+            p_vec = np.random.rand(self.num_dvs)
+        else:
+            p_vec = np.zeros((self.num_dvs,))
+            p_vec[idv] = 1.0 # length good now, t1 + t2 derivs fail
         self.get_frequencies(x)
         # Kr0 = self.Kr.copy()
         phi = self.eigvecs[:,imode].copy()
@@ -773,10 +777,13 @@ class BeamAssemblerAdvanced:
         ur = self.ur.copy()
         dKrdx_grad = self._get_dKdx_static_term(x)
 
+        self.solve_static(x - p_vec * h)
+        Krn1 = self.Kr.copy()
+
         self.solve_static(x + p_vec * h)
         Kr2 = self.Kr.copy()
         
-        dKr_dx_p = (Kr2 - Kr0) / h
+        dKr_dx_p = (Kr2 - Krn1) / 2 / h
         # plt.imshow(dKr_dx_p)
         # plt.show()
 
@@ -853,7 +860,8 @@ class BeamAssemblerAdvanced:
 
         # KS backprop states
         vm_fail_vec = self._get_vm_fail_vec(x)
-        ks_sum = np.sum(np.exp(self.rho_KS * vm_fail_vec))
+        vm_max = np.max(vm_fail_vec)
+        ks_sum =  np.sum(np.exp(self.rho_KS * (vm_fail_vec - vm_max)))
 
         # now loop over each component computing partials --------------
 
@@ -907,7 +915,7 @@ class BeamAssemblerAdvanced:
                 )
 
                 # jacobian of vm fail index => global fail index
-                ks_fail_jac = np.exp(self.rho_KS * vm_fail_index) / ks_sum
+                ks_fail_jac = np.exp(self.rho_KS * (vm_fail_index - vm_max) ) / ks_sum
 
                 # compute dvm/dL term ----------------
                 h = 1e-30 # complex-step method on first order
@@ -946,7 +954,7 @@ class BeamAssemblerAdvanced:
 
          # not sure why /2.0 here have 2.0 above thought that was right
          # maybe because we add twice? also not sure why negative, but that mathces better
-        return fail_grad / 2.0 * -1.0
+        return fail_grad / 2.0
 
     def _get_dfail_du(self, x):
         # partial derivatives / gradient of failure index with respect to disp states
@@ -958,7 +966,8 @@ class BeamAssemblerAdvanced:
 
         # KS backprop states
         vm_fail_vec = self._get_vm_fail_vec(x)
-        ks_sum = np.sum(np.exp(self.rho_KS * vm_fail_vec))
+        vm_max = np.max(vm_fail_vec)
+        ks_sum = np.sum(np.exp(self.rho_KS * (vm_fail_vec - vm_max)))
 
         # now loop over each component computing partials --------------
 
@@ -1011,7 +1020,7 @@ class BeamAssemblerAdvanced:
                 )
 
                 # jacobian of vm fail index => global fail index
-                ks_fail_jac = np.exp(self.rho_KS * vm_fail_index) / ks_sum
+                ks_fail_jac = np.exp(self.rho_KS * (vm_fail_index - vm_max)) / ks_sum
 
                 # now compute dvm_fail/duelem at element level here
                 dvm_duelem = np.zeros((12,))
@@ -1171,7 +1180,7 @@ class BeamAssemblerAdvanced:
                 glob_dof = np.sort(np.array([6*inode+_ for _ in range(6) for inode in elem_nodes]))
 
                 # get the xi [0,1] at start and end of element
-                xi1 = ielem/nelem_per_comp
+                xi1 = (ielem-start)/nelem_per_comp
                 xi2 = xi1 + 1.0 / nelem_per_comp
                 t11 = t1i * (1-xi1) + t1f * xi1
                 t12 = t1i * (1-xi2) + t1f * xi2
