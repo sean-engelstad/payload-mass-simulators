@@ -1,0 +1,24 @@
+init-total-err 1.7231e+01
+curr-total-err 3.2662e+00
+
+funcs:
+	func freq0 = 3.0412e+01, target 24.3
+	func freq1 = 4.1457e+01, target 29.4
+	func freq2 = 5.5663e+01, target 99.5
+	func freq3 = 5.7558e+01, target 173.6
+	func mass = 7.7747e+01, target 176.407
+	func centroid0 = 6.2768e-03, target 0.0104782366
+	func centroid1 = 2.7944e-03, target 0.005086985
+	func centroid2 = 3.8259e-01, target 0.417962588
+	func failure = 9.6411e-01 <= 1.0
+	func dummyobj = 0.0000e+00
+vars:
+	comp-00: L 4.077e-01, t1i 8.256e-02, t1f 3.416e-02, t2i 6.826e-02, t2f 4.095e-02, Mmass 9.289e+00, mx 3.818e-01, 
+	comp-01: L 1.459e+00, t1i 4.118e-02, t1f 6.660e-02, t2i 6.739e-02, t2f 7.013e-02, Mmass 5.110e-01, mx 5.527e-01, 
+	comp-02: L 1.881e+00, t1i 4.415e-02, t1f 5.430e-02, t2i 7.499e-02, t2f 5.493e-02, Mmass 1.000e-01, mx 3.465e-01, 
+	comp-03: L 1.495e+00, t1i 3.224e-02, t1f 4.089e-02, t2i 8.067e-02, t2f 4.987e-02, Mmass 1.268e+00, mx 3.628e-01, 
+	comp-04: L 1.462e+00, t1i 6.778e-02, t1f 3.856e-02, t2i 6.760e-02, t2f 4.806e-02, Mmass 1.555e+00, mx 4.713e-01, 
+	comp-05: L 3.130e-01, t1i 5.711e-02, t1f 4.836e-02, t2i 5.770e-02, t2f 4.973e-02, Mmass 1.601e+00, mx 3.485e-01, 
+	comp-06: L 3.011e-01, t1i 3.756e-02, t1f 3.378e-02, t2i 3.747e-02, t2f 3.375e-02, Mmass 1.000e-01, mx 3.643e-01, 
+	comp-07: L 2.803e-01, t1i 4.016e-02, t1f 3.706e-02, t2i 4.063e-02, t2f 3.718e-02, Mmass 1.340e+00, mx 3.555e-01, 
+	comp-08: L 2.212e-01, t1i 3.794e-02, t1f 3.511e-02, t2i 3.812e-02, t2f 3.515e-02, Mmass 3.370e-01, mx 3.784e-01, 
