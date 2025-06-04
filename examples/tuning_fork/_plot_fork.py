@@ -50,6 +50,10 @@ if __name__ == "__main__":
     tree_start_nodes = [0] + [1]*4 + [2,3,4,5]
     tree_directions = [5] + [0,1,2,3] + [5]*4
 
+    # init_design = loc_dv_list(0.3, 3e-2) * 2
+    # tree_start_nodes = [0] + [1]
+    # tree_directions = [5] + [0]
+
     Llittle = 0.2 # 0.1
 
     # include_level2 = True
@@ -92,6 +96,12 @@ if __name__ == "__main__":
 
     # plot eigenmodes, static analysis, etc.
     # --------------------------------------
+
+    cg = tree.get_centroid(opt_design)
+    print(f"{cg=}")
+    exit()
+    # tree.centroid_FD_test(init_design, h=1e-5, idv='all')
+    # exit()
 
     beam3d.get_frequencies(opt_design)
     beam3d.write_freq_to_vtk(nmodes=4, file_prefix=f"{args.output}/")

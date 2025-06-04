@@ -135,11 +135,13 @@ class TreeData:
             start_xpt_0 = np.array(nodal_xpts_0[start_tree_node])
             # print(f"{nodal_xpts_0=}")
             # print(f"{start_xpt_0.shape=}")
-            direction = self.tree_directions[icomp]%3
+            _direc = self.tree_directions[icomp]
+            direction = _direc // 2 # 0-5 to 0,1,2
+            sign = (_direc % 2) * 2 - 1
             Cij = start_xpt_0.copy()
             #print(f"Cij: {Cij}")
             # print(f"{Cij.shape=}")
-            Cij[direction] += lengths[icomp]/2
+            Cij[direction] += sign * lengths[icomp]/2
             #print(f"Cij: {Cij}")
             sum_MiCij += (rho*Varray[icomp]*Cij)
         Xj = (sum_MiCij)/sum_Mi
@@ -181,12 +183,17 @@ class TreeData:
             # get centroid of tapered beam
             start_tree_node = self.tree_start_nodes[icomp]
             start_xpt_0 = np.array(nodal_xpts_0[start_tree_node])
-            direction = self.tree_directions[icomp]%3
+            _direc = self.tree_directions[icomp]
+            direction = _direc // 2 # 0-5 to 0,1,2
+            sign = (_direc % 2) * 2 - 1
             Cij_beam = start_xpt_0.copy()
-            Cij_beam[direction] += L/2 # actually that's not the centroid..
+            Cij_beam[direction] += sign * L/2 # actually that's not the centroid..
 
             Cij_mass = start_xpt_0.copy()
-            Cij_mass[direction] += L * mx
+            Cij_mass[direction] += sign * L * mx
+
+            # print(f"comp{icomp}: beam mass {rho*V}, beam cg {Cij_beam}, nonstruct mass {Mmass}, mass CG {Cij_mass}")
+            # print(f"\tL {L}, t1i {t1i}, t2i {t2i}, Mmass {Mmass}, direc {direction} sign {sign}, tree direc {self.tree_directions[icomp]}")
 
             # add mass-moment contributions from tapered beam and non-struct mass
             sum_MiCij += rho*V*Cij_beam
@@ -220,7 +227,9 @@ class TreeData:
                 for icomp in range(self.ncomp):
                     start_tree_node = self.tree_start_nodes[icomp]
                     start_xpt_0 = np.array(nodal_xpts_0[start_tree_node])
-                    direction = self.tree_directions[icomp]%3
+                    _direc = self.tree_directions[icomp]
+                    direction = _direc // 2 # 0-5 to 0,1,2
+                    sign = (_direc % 2) * 2 - 1
 
                     L = x[3*icomp]  
                     t1 = x[3*icomp+1]
@@ -232,7 +241,7 @@ class TreeData:
                             if dim == 0: #d/dL
                                 dMi_dlk = rho*t1*t2
                                 dCij_dlk = np.zeros(shape = (3,))
-                                dCij_dlk[direction] = 0.5
+                                dCij_dlk[direction] = 0.5 * sign
                                 # print(f"{icomp=}, {kcomp=}, {dCij_dlk=}")
                             elif dim == 1: #d/dt1
                                 dMi_dlk = rho*L*t2
@@ -248,13 +257,13 @@ class TreeData:
                             self.get_xpts(lengths_0+p_vec*h)
                             nodal_xpts_p = self.tree_xpts.copy()
                             start_xpt_p = np.array(nodal_xpts_p[start_tree_node])
-                            dCij_dlk = (start_xpt_p-start_xpt_0)/h
+                            dCij_dlk = (start_xpt_p-start_xpt_0)/h * sign
                         else:
                             dMi_dlk = 0
                             dCij_dlk = np.zeros(shape = (3,))
 
                     Cij = start_xpt_0.copy()
-                    Cij[direction] += L/2 
+                    Cij[direction] += L/2  * sign
                     sum_Mi += Mi
                     sum_dv += dMi_dlk*Cij+dCij_dlk*Mi
                     sum_v += Mi*Cij
@@ -280,11 +289,7 @@ class TreeData:
     
     def _get_centroid7_gradient(self, x, origin=None):
         rho = self.rho
-        ndv = self.ndvs_per_comp
         h = 1e-5
-
-        sum_Mi = 0.0
-        sum_MiCij = np.zeros(shape=(3,))
 
         # location of comp end nodes
         lengths = np.array([x[7*icomp] for icomp in range(self.ncomp)])
@@ -314,12 +319,14 @@ class TreeData:
                     # get centroid of tapered beam
                     start_tree_node = self.tree_start_nodes[icomp]
                     start_xpt_0 = np.array(nodal_xpts_0[start_tree_node])
-                    direction = self.tree_directions[icomp]%3
+                    _direc = self.tree_directions[icomp]
+                    direction = _direc // 2 # 0-5 to 0,1,2
+                    sign = (_direc % 2) * 2 - 1
                     Cij_beam = start_xpt_0.copy()
-                    Cij_beam[direction] += L/2 # actually that's not the centroid..
+                    Cij_beam[direction] += L/2 * sign # actually that's not the centroid..
 
                     Cij_mass = start_xpt_0.copy()
-                    Cij_mass[direction] += L * mx
+                    Cij_mass[direction] += L * mx * sign
 
                     # add mass terms from tapered beam and non-struct mass
                     # get frustum volume
@@ -335,7 +342,8 @@ class TreeData:
                     if icomp == kcomp:
                             if dim == 0: #d/dL
                                 dMb_dx = rho * V / L
-                                dCij_beam_dx[direction] = 0.5
+                                dCij_beam_dx[direction] = 0.5 * sign
+                                dCij_mass_dx[direction] = mx * sign
                             elif dim == 1: #d/dt1i
                                 dMb_dx = rho * L / 3.0 * (t2i + 0.5 * t2f)
                             elif dim == 2: #d/dt1f
@@ -347,7 +355,7 @@ class TreeData:
                             elif dim == 5: #d/dMmass
                                 dMm_dx = 1.0
                             elif dim == 6: #d/dmx
-                                dCij_mass_dx[direction] = L
+                                dCij_mass_dx[direction] = L * sign
 
                     else:
                         if dim == 0: # d/dL for one comp affecting centroid of another
@@ -369,10 +377,12 @@ class TreeData:
 
         return dXj_gradient
 
-    def centroid_FD_test(self, x, h=1e-3):
-        p_vec = np.random.rand(x.shape[0])
-        # p_vec = np.zeros(x.shape)
-        # p_vec[13] = 1.0
+    def centroid_FD_test(self, x, h=1e-5, idv='all'):
+        if idv == 'all':
+            p_vec = np.random.rand(x.shape[0])
+        else:
+            p_vec = np.zeros(x.shape)
+            p_vec[idv] = 1.0
         # p_vec = np.array([1] + [0]*(x.shape[0]-1))
         # p_vec = np.array([0, 1, 0, 0, 0, 0])
         self.get_centroid(x)
