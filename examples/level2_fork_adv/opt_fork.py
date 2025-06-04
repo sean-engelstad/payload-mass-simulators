@@ -37,16 +37,17 @@ if __name__ == "__main__":
     # directions [0,1,2,3,4,5] equiv to x-,x+,y-,y+,z-,z+
 
     # base and level 1
-    init_design = loc_dv_list(0.3, 3e-2) * 9
+    init_thick = 3e-2 # 3e-2
+    init_design = loc_dv_list(0.3, init_thick) * 9
     tree_start_nodes = [0] + [1]*4 + [2,3,4,5]
     tree_directions = [5] + [0,1,2,3] + [5]*4
 
     Llittle = 0.2 # 0.1
 
     # include_level2 = True
-    include_level2 = False # just level1
+    #include_level2 = False # just level1
 
-    if include_level2:
+    if args.level == 2:
 
         # level 2, x- branch
         init_design += loc_dv_list(Llittle) * 8
@@ -326,7 +327,7 @@ if __name__ == "__main__":
         plt.yscale('log')
         plt.savefig(f"{args.output}/freq-hist.png", dpi=400)
 
-        # write final design to a file
-        hdl = open(f"{args.output}/final-design.txt")
-        hdl.write(f"{sol_xdict=}\n")
-        hdl.close()
+    # write final design to a file
+    hdl = open(f"{args.output}/final-design.txt", "w")
+    hdl.write(f"{sol_xdict=}\n")
+    hdl.close()

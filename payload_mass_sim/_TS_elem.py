@@ -369,7 +369,7 @@ def get_bidirec_strain_energy(
 
         # interp the tying strain is the same tying strain ety => gty for beam
         # transform tying strain to local coords
-        e0ty = 2 * XdinvT[0,0] * ety
+        e0ty = 2 * XdinvT[0,0] * ety_2
 
         # evaluate the strain
         # print(f"{u0x=} {d1x=} {d2x=} {e0ty=}")
@@ -471,7 +471,8 @@ def get_vm_stress(
             ct += 1
 
     # now do KS-smoothing on the vm stress
-    ks_vm_stress = np.log(np.sum(np.exp(rho_KS * vm_fails))) / rho_KS
+    max = np.max(vm_fails)
+    ks_vm_stress = max + np.log(np.sum(np.exp(rho_KS * (vm_fails - max) ))) / rho_KS
     return ks_vm_stress
 
 def get_kinetic_energy(
