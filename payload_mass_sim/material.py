@@ -14,5 +14,6 @@ class Material:
 
         # Shear correction factor:
         k_s = 5/6
-        ys = 11e6
+        ys = 276e6
+        #ys = 11e6 #350e6
         return cls(E, rho, nu, G, k_s, ys)
